@@ -1350,6 +1350,11 @@ public class CameraActivity extends Activity
     public void onCreate(Bundle state) {
         super.onCreate(state);
         checkPermissions();
+        if (!mHasCriticalPermissions) {
+            Log.v(TAG, "onCreate: Missing critical permissions.");
+            finish();
+            return;
+        }
         // Check if this is in the secure camera mode.
         Intent intent = getIntent();
         String action = intent.getAction();
@@ -1605,16 +1610,20 @@ public class CameraActivity extends Activity
         if ((checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
                 !mHasCriticalPermissions) {
             Intent intent = new Intent(this, PermissionsActivity.class);
-            startActivityForResult(intent, PERMISSIONS_ACTIVITY_REQUEST_CODE);
+            startActivity(intent);
+            finish();
+
         }
     }
 
 
     @Override
     public void onResume() {
+        checkPermissions();
         if (!mHasCriticalPermissions) {
             super.onResume();
-            Log.v(TAG, "Missing critical permissions.");
+            Log.v(TAG, "onResume: Missing critical permissions.");
+            finish();
             return;
         }
 
