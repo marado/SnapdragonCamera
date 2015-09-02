@@ -1852,34 +1852,42 @@ public class PhotoModule
         mPreferenceGroup = settings.getPreferenceGroup(R.xml.camera_preferences);
 
         int numOfCams = Camera.getNumberOfCameras();
-        int backCamId = CameraHolder.instance().getBackCameraId();
-        int frontCamId = CameraHolder.instance().getFrontCameraId();
-        // We need to swap the list preference contents if back camera and front camera
-        // IDs are not 0 and 1 respectively
-        if ((numOfCams == 2) && ((backCamId != CameraInfo.CAMERA_FACING_BACK)
-                || (frontCamId != CameraInfo.CAMERA_FACING_FRONT))) {
-            Log.e(TAG,"loadCameraPreferences() updating camera_id pref");
 
-            IconListPreference switchIconPref =
-                    (IconListPreference)mPreferenceGroup.findPreference(
-                    CameraSettings.KEY_CAMERA_ID);
+        Log.e(TAG,"loadCameraPreferences() updating camera_id pref");
 
-            int[] iconIds = {R.drawable.ic_switch_front, R.drawable.ic_switch_back};
-            switchIconPref.setIconIds(iconIds);
+        IconListPreference switchIconPref =
+                (IconListPreference)mPreferenceGroup.findPreference(
+                CameraSettings.KEY_CAMERA_ID);
 
-            String[] entries = {mActivity.getResources().getString(
-                    R.string.pref_camera_id_entry_front), mActivity.getResources().
-                    getString(R.string.pref_camera_id_entry_back)};
-            switchIconPref.setEntries(entries);
+        //if numOfCams < 2 then switchIconPref will be null as there is no switch icon in this case
+        if (switchIconPref == null)
+            return;
 
-            String[] labels = {mActivity.getResources().getString(
-                    R.string.pref_camera_id_label_front), mActivity.getResources().
-                    getString(R.string.pref_camera_id_label_back)};
-            switchIconPref.setLabels(labels);
+        int[] iconIds = new int[numOfCams];
+        String[] entries = new String[numOfCams];
+        String[] labels = new String[numOfCams];
+        int[] largeIconIds = new int[numOfCams];
 
-            int[] largeIconIds = {R.drawable.ic_switch_front, R.drawable.ic_switch_back};
-            switchIconPref.setLargeIconIds(largeIconIds);
+        for(int i=0;i<numOfCams;i++) {
+            CameraInfo info = CameraHolder.instance().getCameraInfo()[i];
+            if(info.facing == CameraInfo.CAMERA_FACING_BACK) {
+                iconIds[i] = R.drawable.ic_switch_back;
+                entries[i] = mActivity.getResources().getString(R.string.pref_camera_id_entry_back);
+                labels[i] = mActivity.getResources().getString(R.string.pref_camera_id_label_back);
+                largeIconIds[i] = R.drawable.ic_switch_back;
+            } else {
+                iconIds[i] = R.drawable.ic_switch_front;
+                entries[i] = mActivity.getResources().getString(R.string.pref_camera_id_entry_front);
+                labels[i] = mActivity.getResources().getString(R.string.pref_camera_id_label_front);
+                largeIconIds[i] = R.drawable.ic_switch_front;
+            }
         }
+
+        switchIconPref.setIconIds(iconIds);
+        switchIconPref.setEntries(entries);
+        switchIconPref.setLabels(labels);
+        switchIconPref.setLargeIconIds(largeIconIds);
+
     }
 
     @Override
@@ -3532,8 +3540,14 @@ public class PhotoModule
         }
 
         // Set JPEG quality.
-        int jpegQuality = CameraProfile.getJpegEncodingQualityParameter(mCameraId,
+        int jpegQuality;
+        if(mCameraId>1) {
+            jpegQuality=95; //Temproray Solution for camera ids greater than 1. Proper fix TBD.
+        } else {
+            jpegQuality = CameraProfile.getJpegEncodingQualityParameter(mCameraId,
                 CameraProfile.QUALITY_HIGH);
+        }
+
         mParameters.setJpegQuality(jpegQuality);
 
         // For the following settings, we need to check if the settings are
