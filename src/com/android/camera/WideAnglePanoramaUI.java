@@ -16,6 +16,8 @@
 
 package com.android.camera;
 
+import java.lang.reflect.Method;
+
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -30,11 +32,16 @@ import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.TextureView;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -43,6 +50,8 @@ import android.widget.TextView;
 import com.android.camera.ui.CameraControls;
 import com.android.camera.ui.CameraRootView;
 import com.android.camera.ui.ModuleSwitcher;
+import com.android.camera.ui.RotateLayout;
+import com.android.camera.ui.RotateTextToast;
 import com.android.camera.util.CameraUtil;
 import org.codeaurora.snapcam.R;
 
@@ -78,6 +87,7 @@ public class WideAnglePanoramaUI implements
     private TextureView mTextureView;
     private ShutterButton mShutterButton;
     private CameraControls mCameraControls;
+    private ImageView mThumbnail;
 
     private Matrix mProgressDirectionMatrix = new Matrix();
     private float[] mProgressAngle = new float[2];
@@ -90,6 +100,12 @@ public class WideAnglePanoramaUI implements
     private int mReviewBackground;
     private SurfaceTexture mSurfaceTexture;
     private View mPreviewCover;
+
+    private int mOrientation;
+    private int mPreviewYOffset;
+    private RotateLayout mWaitingDialog;
+    private RotateLayout mPanoFailedDialog;
+    private Button mPanoFailedButton;
 
     /** Constructor. */
     public WideAnglePanoramaUI(
@@ -104,11 +120,27 @@ public class WideAnglePanoramaUI implements
         mSwitcher = (ModuleSwitcher) mRootView.findViewById(R.id.camera_switcher);
         mSwitcher.setCurrentIndex(ModuleSwitcher.WIDE_ANGLE_PANO_MODULE_INDEX);
         mSwitcher.setSwitchListener(mActivity);
+        mThumbnail = (ImageView) mRootView.findViewById(R.id.preview_thumb);
+        mThumbnail.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!CameraControls.isAnimating())
+                    mActivity.gotoGallery();
+            }
+        });
+
+        mSwitcher.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mSwitcher.showPopup();
+                mSwitcher.setOrientation(mOrientation, false);
+            }
+        });
     }
 
     public void onStartCapture() {
         hideSwitcher();
-        mShutterButton.setImageResource(R.drawable.btn_shutter_recording);
+        mShutterButton.setImageResource(R.drawable.shutter_button_stop);
         mCaptureIndicator.setVisibility(View.VISIBLE);
         showDirectionIndicators(PanoProgressBar.DIRECTION_NONE);
     }
@@ -227,6 +259,7 @@ public class WideAnglePanoramaUI implements
     public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i2) {
         mSurfaceTexture = surfaceTexture;
         mController.onPreviewUIReady();
+        mActivity.updateThumbnail(mThumbnail);
     }
 
     @Override
@@ -261,7 +294,7 @@ public class WideAnglePanoramaUI implements
     }
 
     public void reset() {
-        mShutterButton.setImageResource(R.drawable.btn_new_shutter);
+        mShutterButton.setImageResource(R.drawable.btn_new_shutter_panorama);
         mReviewLayout.setVisibility(View.GONE);
         mCaptureProgressBar.setVisibility(View.INVISIBLE);
     }
@@ -282,6 +315,8 @@ public class WideAnglePanoramaUI implements
         // is sometimes not shown due to wrong layout result. It's likely to be
         // a framework bug. Call requestLayout() as a workaround.
         mSavingProgressBar.requestLayout();
+
+        mActivity.updateThumbnail(bitmap);
     }
 
     public void onConfigurationChanged(
@@ -304,6 +339,39 @@ public class WideAnglePanoramaUI implements
             mCaptureLayout.setVisibility(View.GONE);
             mReviewLayout.setVisibility(View.VISIBLE);
         }
+    }
+
+    private void setPanoramaPreviewView() {
+        int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+        Display display = mActivity.getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+
+        int width = size.x;
+        int height = size.y;
+        int xOffset = 0;
+        int yOffset = 0;
+        int w = width;
+        int h = height;
+
+        h = w * 4 / 3;
+        yOffset = (height - h) / 2;
+
+        FrameLayout.LayoutParams param = new FrameLayout.LayoutParams(w, h);
+        mTextureView.setLayoutParams(param);
+        mTextureView.setX(xOffset);
+        mTextureView.setY(yOffset);
+        mPreviewBorder.setLayoutParams(param);
+        mPreviewBorder.setX(xOffset);
+        mPreviewBorder.setY(yOffset);
+        mPreviewYOffset = yOffset;
+
+        int t = mPreviewYOffset;
+        int b1 = mTextureView.getBottom() - mPreviewYOffset;
+        int r = mTextureView.getRight();
+        int b2 = mTextureView.getBottom();
+
+        mCameraControls.setPreviewRatio(1.0f, true);
     }
 
     public void resetSavingProgress() {
@@ -394,21 +462,17 @@ public class WideAnglePanoramaUI implements
         mTextureView.setSurfaceTextureListener(this);
         mTextureView.addOnLayoutChangeListener(this);
         mCameraControls = (CameraControls) mRootView.findViewById(R.id.camera_controls);
+        setPanoramaPreviewView();
 
+        mWaitingDialog = (RotateLayout) mRootView.findViewById(R.id.waitingDialog);
+        mPanoFailedDialog = (RotateLayout) mRootView.findViewById(R.id.pano_dialog_layout);
+        mPanoFailedButton = (Button) mRootView.findViewById(R.id.pano_dialog_button1);
         mDialogHelper = new DialogHelper();
         setViews(appRes);
     }
 
     private void setViews(Resources appRes) {
         int weight = appRes.getInteger(R.integer.SRI_pano_layout_weight);
-
-        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mPreviewLayout.getLayoutParams();
-        lp.weight = weight;
-        mPreviewLayout.setLayoutParams(lp);
-
-        lp = (LinearLayout.LayoutParams) mReview.getLayoutParams();
-        lp.weight = weight;
-        mPreviewLayout.setLayoutParams(lp);
 
         mSavingProgressBar = (PanoProgressBar) mRootView.findViewById(R.id.pano_saving_progress_bar);
         mSavingProgressBar.setIndicatorWidth(0);
@@ -477,22 +541,16 @@ public class WideAnglePanoramaUI implements
     }
 
     private class DialogHelper {
-        private ProgressDialog mProgressDialog;
-        private AlertDialog mAlertDialog;
 
         DialogHelper() {
-            mProgressDialog = null;
-            mAlertDialog = null;
         }
 
         public void dismissAll() {
-            if (mAlertDialog != null) {
-                mAlertDialog.dismiss();
-                mAlertDialog = null;
+            if (mPanoFailedDialog != null) {
+                mPanoFailedDialog.setVisibility(View.INVISIBLE);
             }
-            if (mProgressDialog != null) {
-                mProgressDialog.dismiss();
-                mProgressDialog = null;
+            if (mWaitingDialog != null) {
+                mWaitingDialog.setVisibility(View.INVISIBLE);
             }
         }
 
@@ -500,21 +558,19 @@ public class WideAnglePanoramaUI implements
                 CharSequence title, CharSequence message,
                 CharSequence buttonMessage, final Runnable buttonRunnable) {
             dismissAll();
-            mAlertDialog = (new AlertDialog.Builder(mActivity))
-                    .setTitle(title)
-                    .setMessage(message)
-                    .setNeutralButton(buttonMessage, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            buttonRunnable.run();
-                        }
-                    })
-                    .show();
+            mPanoFailedButton.setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    buttonRunnable.run();
+                    mPanoFailedDialog.setVisibility(View.INVISIBLE);
+                }
+            });
+            mPanoFailedDialog.setVisibility(View.VISIBLE);
         }
 
         public void showWaitingDialog(CharSequence message) {
             dismissAll();
-            mProgressDialog = ProgressDialog.show(mActivity, null, message, true, false);
+            mWaitingDialog.setVisibility(View.VISIBLE);
         }
     }
 
@@ -534,5 +590,104 @@ public class WideAnglePanoramaUI implements
             super.draw(canvas);
             canvas.restore();
         }
+    }
+
+    public boolean hideSwitcherPopup() {
+        if (mSwitcher != null && mSwitcher.showsPopup()) {
+            mSwitcher.closePopup();
+            return true;
+        }
+        return false;
+   }
+
+    public void setOrientation(int orientation, boolean animation) {
+        mOrientation = orientation;
+        // '---------`
+        // |    0    |
+        // |---------| =t
+        // | |     | |
+        // |1|     |2|
+        // | |     | |
+        // |---------| =b1
+        // |    3    |
+        // `---------' =b2
+        //          =r
+        final View dummy = mRootView.findViewById(R.id.pano_dummy_layout);
+        int t = dummy.getTop();
+        int b1 = dummy.getBottom();
+        int r = dummy.getRight();
+        int b2 = dummy.getBottom();
+        final FrameLayout progressLayout = (FrameLayout)
+                mRootView.findViewById(R.id.pano_progress_layout);
+        int pivotY = ((ViewGroup) progressLayout).getPaddingTop()
+                + progressLayout.getChildAt(0).getHeight() / 2;
+
+        int[] x = { r / 2, r / 10, r * 9 / 10, r / 2 };
+        int[] y = { t / 2, (t + b1) / 2, (t + b1) / 2, b1 + pivotY };
+
+        int idx1, idx2;
+        int g;
+        switch (orientation) {
+            case 90:
+                idx1 = 1;
+                idx2 = 2;
+                g = Gravity.TOP | Gravity.RIGHT;
+                break;
+            case 180:
+                idx1 = 3;
+                idx2 = 0;
+                g = Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
+                break;
+            case 270:
+                idx1 = 2;
+                idx2 = 1;
+                g = Gravity.TOP | Gravity.RIGHT;
+                break;
+            default:
+                idx1 = 0;
+                idx2 = 3;
+                g = Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM;
+                break;
+        }
+
+        final View[] views1 = {
+            (View) mCaptureIndicator.getParent(),
+            mRootView.findViewById(R.id.pano_review_indicator)
+        };
+        for (final View v : views1) {
+            v.setTranslationX(x[idx1] - x[0]);
+            v.setTranslationY(y[idx1]- y[0]);
+            // use relection here to build on Kitkat
+            if (Build.VERSION.SDK_INT >= 21) {
+                try {
+                    final Class cls = Class.forName("android.view.View");
+                    final Method method = cls.getMethod("setTranslationZ", float.class);
+                    method.invoke(v, 1);
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
+            v.setRotation(-orientation);
+        }
+
+        final View[] views2 = { progressLayout, mReviewControl };
+        for (final View v : views2) {
+            v.setPivotX(r / 2);
+            v.setPivotY(pivotY);
+            v.setTranslationX(x[idx2] - x[3]);
+            v.setTranslationY(y[idx2] - y[3]);
+            v.setRotation(-orientation);
+        }
+
+        final View button = mReviewControl.findViewById(R.id.pano_review_cancel_button);
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) button.getLayoutParams();
+        lp.gravity = g;
+        button.setLayoutParams(lp);
+        mWaitingDialog.setRotation(-orientation);
+        mPanoFailedDialog.setRotation(-orientation);
+        mReview.setRotation(-orientation);
+        mTooFastPrompt.setRotation(-orientation);
+        mCameraControls.setOrientation(orientation, animation);
+        RotateTextToast.setOrientation(orientation);
     }
 }

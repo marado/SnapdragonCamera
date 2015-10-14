@@ -50,6 +50,7 @@ import com.android.camera.CameraManager.CameraProxy;
 import com.android.camera.app.OrientationManager;
 import com.android.camera.data.LocalData;
 import com.android.camera.exif.ExifInterface;
+import com.android.camera.ui.RotateTextToast;
 import com.android.camera.util.CameraUtil;
 import com.android.camera.util.UsageStatistics;
 import org.codeaurora.snapcam.R;
@@ -134,6 +135,7 @@ public class WideAnglePanoramaModule
     private int mDeviceOrientationAtCapture;
     private int mCameraOrientation;
     private int mOrientationCompensation;
+    private boolean mOrientationLocked;
 
     private SoundClips.Player mSoundPlayer;
 
@@ -149,6 +151,9 @@ public class WideAnglePanoramaModule
     private ComboPreferences mPreferences;
     private boolean mMosaicPreviewConfigured;
     private boolean mPreviewFocused = true;
+    private boolean mPreviewLayoutChanged = false;
+
+    private boolean mDirectionChanged = false;
 
     @Override
     public void onPreviewUIReady() {
@@ -192,6 +197,7 @@ public class WideAnglePanoramaModule
             // the camera then point the camera to floor or sky, we still have
             // the correct orientation.
             if (orientation == ORIENTATION_UNKNOWN) return;
+            int oldOrientation = mDeviceOrientation;
             mDeviceOrientation = CameraUtil.roundOrientation(orientation, mDeviceOrientation);
             // When the screen is unlocked, display rotation may change. Always
             // calculate the up-to-date orientationCompensation.
@@ -199,6 +205,12 @@ public class WideAnglePanoramaModule
                     + CameraUtil.getDisplayRotation(mActivity) % 360;
             if (mOrientationCompensation != orientationCompensation) {
                 mOrientationCompensation = orientationCompensation;
+            }
+            if (oldOrientation != mDeviceOrientation
+                    && oldOrientation != OrientationEventListener.ORIENTATION_UNKNOWN) {
+                mPreviewLayoutChanged = true;
+                if (!mOrientationLocked)
+                    mUI.setOrientation(mDeviceOrientation, true);
             }
         }
     }
@@ -215,8 +227,15 @@ public class WideAnglePanoramaModule
                 new PanoProgressBar.OnDirectionChangeListener() {
                     @Override
                     public void onDirectionChange(int direction) {
+                        if (mDirectionChanged) {
+                            stopCapture(false);
+                            return;
+                        }
                         if (mCaptureState == CAPTURE_STATE_MOSAIC) {
                             mUI.showDirectionIndicators(direction);
+                        }
+                        if (direction != PanoProgressBar.DIRECTION_NONE) {
+                            mDirectionChanged = true;
                         }
                     }
                 });
@@ -242,6 +261,12 @@ public class WideAnglePanoramaModule
                     mRootView.setVisibility(View.VISIBLE);
                 } else {
                     if (mCaptureState == CAPTURE_STATE_VIEWFINDER) {
+                        if (mPreviewLayoutChanged) {
+                            boolean isLandscape = (mDeviceOrientation / 90) % 2 == 1;
+                            renderer.previewReset(mPreviewUIWidth, mPreviewUIHeight,
+                                    isLandscape, mDeviceOrientation);
+                            mPreviewLayoutChanged = false;
+                        }
                         renderer.showPreviewFrame();
                     } else {
                         renderer.alignFrameSync();
@@ -266,7 +291,7 @@ public class WideAnglePanoramaModule
         mDialogWaitingPreviousString = appRes.getString(R.string.pano_dialog_waiting_previous);
 
         mPreferences = new ComboPreferences(mActivity);
-        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal());
+        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), activity);
         mLocationManager = new LocationManager(mActivity, null);
 
         mMainHandler = new Handler() {
@@ -459,13 +484,13 @@ public class WideAnglePanoramaModule
             }
             mMosaicPreviewRenderer = null;
         }
-        final boolean isLandscape =
-                (mActivity.getResources().getConfiguration().orientation ==
-                        Configuration.ORIENTATION_LANDSCAPE);
+        final boolean isLandscape = (mDeviceOrientation / 90) % 2 == 1;
+        final boolean enableWarpedPanoPreview =
+                mActivity.getResources().getBoolean(R.bool.enable_warped_pano_preview);
         mUI.flipPreviewIfNeeded();
         MosaicPreviewRenderer renderer = new MosaicPreviewRenderer(
-                mUI.getSurfaceTexture(),
-                mPreviewUIWidth, mPreviewUIHeight, isLandscape);
+                mUI.getSurfaceTexture(), mPreviewUIWidth, mPreviewUIHeight,
+                isLandscape, mDeviceOrientation, enableWarpedPanoPreview);
         synchronized (mRendererLock) {
             mMosaicPreviewRenderer = renderer;
             mCameraTexture = mMosaicPreviewRenderer.getInputSurfaceTexture();
@@ -541,6 +566,10 @@ public class WideAnglePanoramaModule
                 } else {
                     float panningRateXInDegree = panningRateX * mHorizontalViewAngle;
                     float panningRateYInDegree = panningRateY * mVerticalViewAngle;
+                    if (mDeviceOrientation == 180 || mDeviceOrientation == 90) {
+                        accumulatedHorizontalAngle = -accumulatedHorizontalAngle;
+                        accumulatedVerticalAngle = -accumulatedVerticalAngle;
+                    }
                     mUI.updateCaptureProgress(panningRateXInDegree, panningRateYInDegree,
                             accumulatedHorizontalAngle, accumulatedVerticalAngle,
                             PANNING_SPEED_THRESHOLD);
@@ -555,8 +584,7 @@ public class WideAnglePanoramaModule
         mUI.showCaptureProgress();
         mDeviceOrientationAtCapture = mDeviceOrientation;
         keepScreenOn();
-        // TODO: mActivity.getOrientationManager().lockOrientation();
-        mOrientationManager.lockOrientation();
+        mOrientationLocked = true;
         int degrees = CameraUtil.getDisplayRotation(mActivity);
         int cameraId = CameraHolder.instance().getBackCameraId();
         int orientation = CameraUtil.getDisplayOrientation(degrees, cameraId);
@@ -564,6 +592,7 @@ public class WideAnglePanoramaModule
     }
 
     private void stopCapture(boolean aborted) {
+        mDirectionChanged = false;
         mCaptureState = CAPTURE_STATE_VIEWFINDER;
         mUI.onStopCapture();
         Parameters parameters = mCameraDevice.getParameters();
@@ -739,8 +768,10 @@ public class WideAnglePanoramaModule
     // This function will be called upon the first camera frame is available.
     private void reset() {
         mCaptureState = CAPTURE_STATE_VIEWFINDER;
+        mDirectionChanged = false;
 
-        mOrientationManager.unlockOrientation();
+        mOrientationLocked = false;
+        mUI.setOrientation(mDeviceOrientation, true);
         mUI.reset();
         mActivity.setSwipingEnabled(true);
         // Orientation change will trigger onLayoutChange->configMosaicPreview->
@@ -897,7 +928,7 @@ public class WideAnglePanoramaModule
     @Override
     public void onSwitchSavePath() {
         mPreferences.edit().putString(CameraSettings.KEY_CAMERA_SAVEPATH, "1").apply();
-        Toast.makeText(mActivity, R.string.on_switch_save_path_to_sdcard,
+        RotateTextToast.makeText(mActivity, R.string.on_switch_save_path_to_sdcard,
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -1013,7 +1044,7 @@ public class WideAnglePanoramaModule
             // UI is not ready.
             return;
         }
-
+        mErrorCallback.setActivity(mActivity);
         mCameraDevice.setErrorCallback(mErrorCallback);
 
         // This works around a driver issue. startPreview may fail if
@@ -1061,6 +1092,10 @@ public class WideAnglePanoramaModule
         // If panorama is generating low res or high res mosaic, ignore back
         // key. So the activity will not be destroyed.
         if (mThreadRunning) return true;
+
+        if (mUI.hideSwitcherPopup())
+            return true;
+
         return false;
     }
 

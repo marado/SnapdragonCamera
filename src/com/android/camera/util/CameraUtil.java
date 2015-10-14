@@ -57,6 +57,7 @@ import com.android.camera.CameraDisabledException;
 import com.android.camera.CameraHolder;
 import com.android.camera.CameraManager;
 import com.android.camera.CameraSettings;
+import com.android.camera.ui.RotateTextToast;
 import com.android.camera.util.IntentHelper;
 import org.codeaurora.snapcam.R;
 
@@ -119,6 +120,10 @@ public class CameraUtil {
 
     /** Has to be in sync with the receiving MovieActivity. */
     public static final String KEY_TREAT_UP_AS_BACK = "treat-up-as-back";
+
+    public static final int RATIO_UNKNOWN = 0;
+    public static final int RATIO_16_9 = 1;
+    public static final int RATIO_4_3 = 2;
 
     public static boolean isSupported(String value, List<String> supported) {
         return supported == null ? false : supported.indexOf(value) >= 0;
@@ -1005,7 +1010,7 @@ public class CameraUtil {
                 activity.finish();
             }
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(activity, activity.getString(R.string.video_err),
+            RotateTextToast.makeText(activity, activity.getString(R.string.video_err),
                     Toast.LENGTH_SHORT).show();
         }
     }
@@ -1035,8 +1040,15 @@ public class CameraUtil {
             // Use the "geo intent" if no GMM is installed
             Log.e(TAG, "GMM activity not found!", e);
             String url = String.format(Locale.ENGLISH, "geo:%f,%f", latLong[0], latLong[1]);
-            Intent mapsIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            activity.startActivity(mapsIntent);
+            try {
+                Intent mapsIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                activity.startActivity(mapsIntent);
+            } catch (ActivityNotFoundException ex) {
+                Log.e(TAG, "Map view activity not found!", ex);
+                RotateTextToast.makeText(activity,
+                        activity.getString(R.string.map_activity_not_found_err),
+                        Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -1057,4 +1069,51 @@ public class CameraUtil {
         }
         return ret;
     }
+
+    public static boolean volumeKeyShutterDisable(Context context) {
+        return context.getResources().getBoolean(R.bool.volume_key_shutter_disable);
+    }
+
+    public static int determineRatio(int width, int height) {
+        if (height != 0) {
+            return determineRatio(((float) width) / height);
+        }
+        return RATIO_UNKNOWN;
+    }
+
+    public static int determineRatio(float ratio) {
+        if (ratio < 1) {
+            ratio = 1 / ratio;
+        }
+        if (ratio > 1.33f && ratio < 1.34f) {
+            return RATIO_4_3;
+        } else if (ratio > 1.77f && ratio < 1.78f) {
+            return RATIO_16_9;
+        } else {
+            return RATIO_UNKNOWN;
+        }
+    }
+
+    public static int determinCloseRatio(float ratio) {
+        if (ratio < 1) {
+            ratio = 1 / ratio;
+        }
+
+        float diffFrom_4_3 = ((float) 4 / 3) / ratio;
+        if (diffFrom_4_3 < 1) {
+            diffFrom_4_3 = 1 / diffFrom_4_3;
+        }
+
+        float diffFrom_16_9 = ((float) 16 / 9) / ratio;
+        if (diffFrom_16_9 < 1) {
+            diffFrom_16_9 = 1 / diffFrom_16_9;
+        }
+
+        if (diffFrom_4_3 < diffFrom_16_9) {
+            return RATIO_4_3;
+        } else {
+            return RATIO_16_9;
+        }
+    }
+
 }

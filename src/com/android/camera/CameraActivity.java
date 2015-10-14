@@ -16,6 +16,8 @@
 
 package com.android.camera;
 
+import android.view.Display;
+import android.graphics.Point;
 import android.animation.Animator;
 import android.annotation.TargetApi;
 import android.app.ActionBar;
@@ -31,8 +33,23 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapRegionDecoder;
+import android.graphics.BitmapShader;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.media.ThumbnailUtils;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAdapter.CreateBeamUrisCallback;
 import android.nfc.NfcEvent;
@@ -43,6 +60,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
+import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -77,10 +97,12 @@ import com.android.camera.data.LocalDataAdapter;
 import com.android.camera.data.LocalMediaObserver;
 import com.android.camera.data.MediaDetails;
 import com.android.camera.data.SimpleViewData;
+import com.android.camera.exif.ExifInterface;
 import com.android.camera.tinyplanet.TinyPlanetFragment;
 import com.android.camera.ui.ModuleSwitcher;
 import com.android.camera.ui.DetailsDialog;
 import com.android.camera.ui.FilmStripView;
+import com.android.camera.ui.FilmStripView.ImageData;
 import com.android.camera.util.ApiHelper;
 import com.android.camera.util.CameraUtil;
 import com.android.camera.util.GcamHelper;
@@ -91,8 +113,11 @@ import com.android.camera.util.UsageStatistics;
 import org.codeaurora.snapcam.R;
 
 import java.io.File;
+import java.io.IOException;
 
 import static com.android.camera.CameraManager.CameraOpenErrorCallback;
+
+import android.media.AudioManager;
 
 public class CameraActivity extends Activity
         implements ModuleSwitcher.ModuleSwitchListener,
@@ -108,12 +133,19 @@ public class CameraActivity extends Activity
     public static final String ACTION_TRIM_VIDEO =
             "com.android.camera.action.TRIM";
     public static final String MEDIA_ITEM_PATH = "media-item-path";
+    public static final String KEY_TOTAL_NUMBER = "total-number";
+
+    // Used to show whether Gallery was launched from Snapcam
+    private static final String KEY_FROM_SNAPCAM = "from-snapcam";
 
     // The intent extra for camera from secure lock screen. True if the gallery
     // should only show newly captured pictures. sSecureAlbumId does not
     // increment. This is used when switching between camera, camcorder, and
     // panorama. If the extra is not set, it is in the normal camera mode.
     public static final String SECURE_CAMERA_EXTRA = "secure_camera";
+
+    // This string is used for judge start activity from screenoff or not
+    public static final String GESTURE_CAMERA_NAME = "com.android.camera.CameraGestureActivity";
 
     /**
      * Request code from an activity we started that indicated that we do not
@@ -143,6 +175,10 @@ public class CameraActivity extends Activity
     private static final int SUPPORT_SHOW_ON_MAP = 1 << 9;
     private static final int SUPPORT_ALL = 0xffffffff;
 
+    // Pie Setting Menu enabled
+    private static boolean PIE_MENU_ENABLED = false;
+    private boolean mDeveloperMenuEnabled = false;
+
     /** This data adapter is used by FilmStripView. */
     private LocalDataAdapter mDataAdapter;
     /** This data adapter represents the real local camera data. */
@@ -161,7 +197,6 @@ public class CameraActivity extends Activity
     private Intent mResultDataForTesting;
     private OnScreenHint mStorageHint;
     private long mStorageSpaceBytes = Storage.LOW_STORAGE_THRESHOLD_BYTES;
-    private boolean mAutoRotateScreen;
     private boolean mSecureCamera;
     // This is a hack to speed up the start of SecureCamera.
     private static boolean sFirstStartAfterScreenOn = true;
@@ -176,7 +211,8 @@ public class CameraActivity extends Activity
     private ViewGroup mUndoDeletionBar;
     private boolean mIsUndoingDeletion = false;
     private boolean mIsEditActivityInProgress = false;
-    protected boolean mIsModuleSwitchInProgress = false;
+    private View mPreviewCover;
+    private FrameLayout mPreviewContentLayout;
 
     private Uri[] mNfcPushUris = new Uri[1];
 
@@ -187,12 +223,25 @@ public class CameraActivity extends Activity
     private LocalMediaObserver mLocalImagesObserver;
     private LocalMediaObserver mLocalVideosObserver;
 
-    private final int DEFAULT_SYSTEM_UI_VISIBILITY = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+    private final int DEFAULT_SYSTEM_UI_VISIBILITY = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+
     private boolean mPendingDeletion = false;
 
     private Intent mVideoShareIntent;
     private Intent mImageShareIntent;
+    public static int SETTING_LIST_WIDTH_1 = 250;
+    public static int SETTING_LIST_WIDTH_2 = 250;
+
+    private ImageView mThumbnail;
+    private CircularDrawable mThumbnailDrawable;
+    // FilmStripView.setDataAdapter fires 2 onDataLoaded calls before any data is actually loaded
+    // Keep track of data request here to avoid creating useless UpdateThumbnailTask.
+    private boolean mDataRequested;
+
+    private AudioManager mAudioManager;
+    private int mShutterVol;
+    private int mOriginalMasterVol;
+    private WakeLock mWakeLock;
 
     private class MyOrientationEventListener
             extends OrientationEventListener {
@@ -260,6 +309,24 @@ public class CameraActivity extends Activity
                 }
             };
 
+    // update the status of storage space when SD card status changed.
+    private BroadcastReceiver mSDcardMountedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "SDcard status changed, update storage space");
+            updateStorageSpaceAndHint();
+        }
+    };
+
+    private void registerSDcardMountedReceiver() {
+        // filter for SDcard status
+        IntentFilter filter = new IntentFilter(Intent.ACTION_MEDIA_MOUNTED);
+        filter.addAction(Intent.ACTION_MEDIA_SHARED);
+        filter.addAction(Intent.ACTION_MEDIA_UNMOUNTED);
+        filter.addDataScheme("file");
+        registerReceiver(mSDcardMountedReceiver, filter);
+    }
+
     // close activity when screen turns off
     private BroadcastReceiver mScreenOffReceiver = new BroadcastReceiver() {
         @Override
@@ -301,6 +368,18 @@ public class CameraActivity extends Activity
 
     public static boolean isFirstStartAfterScreenOn() {
         return sFirstStartAfterScreenOn;
+    }
+
+    public static boolean isPieMenuEnabled() {
+        return PIE_MENU_ENABLED;
+    }
+
+    public boolean isDeveloperMenuEnabled() {
+        return mDeveloperMenuEnabled;
+    }
+
+    public void enableDeveloperMenu() {
+        mDeveloperMenuEnabled = true;
     }
 
     public static void resetFirstStartAfterScreenOn() {
@@ -385,6 +464,7 @@ public class CameraActivity extends Activity
                     if(!arePreviewControlsVisible()) {
                         setPreviewControlsVisibility(true);
                         CameraActivity.this.setSystemBarsVisibility(false);
+                        mFilmStripView.getController().goToFullScreen();
                     }
                 }
 
@@ -491,10 +571,37 @@ public class CameraActivity extends Activity
             };
 
     public void gotoGallery() {
-        UsageStatistics.onEvent(UsageStatistics.COMPONENT_CAMERA, UsageStatistics.ACTION_FILMSTRIP,
-                "thumbnailTap");
-
-        mFilmStripView.getController().goToNextItem();
+        LocalDataAdapter adapter = getDataAdapter();
+        ImageData img = adapter.getImageData(1);
+        if (img == null)
+            return;
+        Uri uri = img.getContentUri();
+        if (mCurrentModule instanceof PhotoModule) {
+            if (((PhotoModule) mCurrentModule).isRefocus()) {
+                Intent intent = new Intent();
+                intent.setClass(this, RefocusActivity.class);
+                intent.setData(uri);
+                startActivity(intent);
+                return;
+            }
+        }
+        try {
+            Intent intent = IntentHelper.getGalleryIntent(this);
+            intent.setAction(Intent.ACTION_VIEW);
+            intent.setData(uri);
+            intent.putExtra(KEY_FROM_SNAPCAM, true);
+            intent.putExtra(KEY_TOTAL_NUMBER, (adapter.getTotalNumber() -1));
+            startActivity(intent);
+        } catch (ActivityNotFoundException ex) {
+            try {
+                Log.w(TAG, "Gallery not found");
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(intent);
+                intent.putExtra(KEY_FROM_SNAPCAM, true);
+            } catch (ActivityNotFoundException e) {
+                Log.w(TAG, "No Activity could be found to open image or video");
+            }
+        }
     }
 
     /**
@@ -515,9 +622,9 @@ public class CameraActivity extends Activity
         mMainHandler.removeMessages(HIDE_ACTION_BAR);
 
         int currentSystemUIVisibility = mAboveFilmstripControlLayout.getSystemUiVisibility();
-        int newSystemUIVisibility = DEFAULT_SYSTEM_UI_VISIBILITY |
-                (visible ? View.SYSTEM_UI_FLAG_VISIBLE :
-                        View.SYSTEM_UI_FLAG_LOW_PROFILE | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        int newSystemUIVisibility = DEFAULT_SYSTEM_UI_VISIBILITY
+                | (visible ? View.SYSTEM_UI_FLAG_VISIBLE : View.SYSTEM_UI_FLAG_LOW_PROFILE
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN);
         if (newSystemUIVisibility != currentSystemUIVisibility) {
             mAboveFilmstripControlLayout.setSystemUiVisibility(newSystemUIVisibility);
         }
@@ -576,6 +683,223 @@ public class CameraActivity extends Activity
 
     private void setNfcBeamPushUri(Uri uri) {
         mNfcPushUris[0] = uri;
+    }
+
+    public LocalDataAdapter getDataAdapter() {
+        return mDataAdapter;
+    }
+
+    private String getPathFromUri(Uri uri) {
+        String[] projection = {
+                MediaStore.Images.Media.DATA
+        };
+        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
+        if (cursor == null)
+            return null;
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        String s = null;
+        if (cursor.moveToFirst()) {
+            s = cursor.getString(column_index);
+        }
+        cursor.close();
+        return s;
+    }
+
+    public void updateThumbnail(final byte[] jpegData) {
+        (new UpdateThumbnailTask(jpegData, false)).execute();
+    }
+
+    public void updateThumbnail(final Bitmap bitmap) {
+        mThumbnailDrawable = new CircularDrawable(bitmap);
+        if (mThumbnail != null) {
+            mThumbnail.setImageDrawable(mThumbnailDrawable);
+            mThumbnail.setVisibility(View.VISIBLE);
+        }
+    }
+
+    public void updateThumbnail(ImageView thumbnail) {
+        mThumbnail = thumbnail;
+        if (mThumbnailDrawable != null) {
+            mThumbnail.setImageDrawable(mThumbnailDrawable);
+            mThumbnail.setVisibility(View.VISIBLE);
+        }
+    }
+
+    public void updateThumbnail(boolean videoOnly) {
+        // Only handle OnDataInserted if it's video.
+        // Photo and Panorama have their own way of updating thumbnail.
+        if (!videoOnly || (mCurrentModule instanceof VideoModule)) {
+            (new UpdateThumbnailTask(null, true)).execute();
+        }
+    }
+
+    private class UpdateThumbnailTask extends AsyncTask<Void, Void, Bitmap> {
+        private final byte[] mJpegData;
+        private final boolean mCheckOrientation;
+
+        public UpdateThumbnailTask(final byte[] jpegData, boolean checkOrientation) {
+            mJpegData = jpegData;
+            mCheckOrientation = checkOrientation;
+        }
+
+        @Override
+        protected Bitmap doInBackground(Void... params) {
+            if (mJpegData != null)
+                return decodeImageCenter(null);
+
+            LocalDataAdapter adapter = getDataAdapter();
+            ImageData img = adapter.getImageData(1);
+            if (img == null) {
+                return null;
+            }
+            Uri uri = img.getContentUri();
+            String path = getPathFromUri(uri);
+            if (path == null) {
+                return null;
+            }
+            else {
+                if (img.isPhoto()) {
+                    return decodeImageCenter(path);
+                } else {
+                    return ThumbnailUtils
+                            .createVideoThumbnail(path, MediaStore.Video.Thumbnails.MINI_KIND);
+                }
+            }
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            if (bitmap == null) {
+                if (mThumbnail != null) {
+                    mThumbnail.setVisibility(View.GONE);
+                }
+            } else {
+                updateThumbnail(bitmap);
+            }
+        }
+
+        private Bitmap decodeImageCenter(final String path) {
+            // Check photo orientation for Panorama. This is necessary during app launch because
+            // Panorama module generates thumbnail bitmap with orientation adjustment but only
+            // saves jpeg with orientation tag set.
+            int orientation = 0;
+            if (mCheckOrientation) {
+                ExifInterface exif = new ExifInterface();
+                try {
+                    if (mJpegData != null) {
+                        exif.readExif(mJpegData);
+                    } else {
+                        exif.readExif(path);
+                    }
+                    orientation = Exif.getOrientation(exif);
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
+
+            final BitmapFactory.Options opt = new BitmapFactory.Options();
+            opt.inJustDecodeBounds = true;
+            if (mJpegData != null) {
+                BitmapFactory.decodeByteArray(mJpegData, 0, mJpegData.length, opt);
+            } else {
+                BitmapFactory.decodeFile(path, opt);
+            }
+
+            int w = opt.outWidth;
+            int h = opt.outHeight;
+            int d = w > h ? h : w;
+            final Rect rect = w > h ? new Rect((w - h) / 2, 0, (w + h) / 2, h)
+                    : new Rect(0, (h - w) / 2, w, (h + w) / 2);
+
+            final int target = getResources().getDimensionPixelSize(R.dimen.capture_size);
+            int sample = 1;
+            if (d > target) {
+                while (d / sample / 2 > target) {
+                    sample *= 2;
+                }
+            }
+
+            opt.inJustDecodeBounds = false;
+            opt.inSampleSize = sample;
+            final BitmapRegionDecoder decoder;
+            try {
+                if (mJpegData == null) {
+                    decoder = BitmapRegionDecoder.newInstance(path, true);
+                } else {
+                    decoder = BitmapRegionDecoder.newInstance(mJpegData, 0, mJpegData.length, true);
+                }
+            } catch (IOException e) {
+                return null;
+            }
+            Bitmap bitmap = decoder.decodeRegion(rect, opt);
+            if (orientation != 0) {
+                Matrix matrix = new Matrix();
+                matrix.setRotate(orientation);
+                bitmap = Bitmap.createBitmap(bitmap, 0, 0,
+                        bitmap.getWidth(), bitmap.getHeight(), matrix, false);
+            }
+            return bitmap;
+        }
+    }
+
+    private class CircularDrawable extends Drawable {
+        private final BitmapShader mBitmapShader;
+        private final Paint mPaint;
+        private Rect mRect;
+        private int mLength;
+
+        public CircularDrawable(Bitmap bitmap) {
+            int w = bitmap.getWidth();
+            int h = bitmap.getHeight();
+            if (w > h) {
+                mLength = h;
+                bitmap = Bitmap.createBitmap(bitmap, (w - h) / 2, 0, h, h);
+            } else if (w < h) {
+                mLength = w;
+                bitmap = Bitmap.createBitmap(bitmap, 0, (h - w) / 2, w, w);
+            }
+
+            mBitmapShader = new BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+            mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            mPaint.setShader(mBitmapShader);
+        }
+
+        @Override
+        protected void onBoundsChange(Rect bounds) {
+            super.onBoundsChange(bounds);
+            mRect = bounds;
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            canvas.drawRoundRect(new RectF(mRect), (mRect.right - mRect.left) / 2,
+                    (mRect.bottom - mRect.top) / 2, mPaint);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            mPaint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter filter) {
+            mPaint.setColorFilter(filter);
+        }
+
+        @Override
+        public int getIntrinsicWidth() {
+            return mLength;
+        }
+
+        @Override
+        public int getIntrinsicHeight() {
+            return mLength;
+        }
     }
 
     private void setStandardShareIntent(Uri contentUri, String mimeType) {
@@ -853,6 +1177,10 @@ public class CameraActivity extends Activity
     public void notifyNewMedia(Uri uri) {
         ContentResolver cr = getContentResolver();
         String mimeType = cr.getType(uri);
+        if (mimeType == null) {
+            Log.e(TAG, "mimeType is NULL");
+            return;
+        }
         if (mimeType.startsWith("video/")) {
             sendBroadcast(new Intent(CameraUtil.ACTION_NEW_VIDEO, uri));
             mDataAdapter.addNewVideo(cr, uri);
@@ -1029,23 +1357,12 @@ public class CameraActivity extends Activity
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
-        GcamHelper.init(getContentResolver());
-
-        getWindow().requestFeature(Window.FEATURE_ACTION_BAR);
-        setContentView(R.layout.camera_filmstrip);
-        mActionBar = getActionBar();
-        mActionBar.addOnMenuVisibilityListener(this);
-
-        if (ApiHelper.HAS_ROTATION_ANIMATION) {
-            setRotationAnimation();
-        }
-
-        mMainHandler = new MainHandler(getMainLooper());
         // Check if this is in the secure camera mode.
         Intent intent = getIntent();
         String action = intent.getAction();
         if (INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE.equals(action)
-                || ACTION_IMAGE_CAPTURE_SECURE.equals(action)) {
+                || ACTION_IMAGE_CAPTURE_SECURE.equals(action)
+                || intent.getComponent().getClassName().equals(GESTURE_CAMERA_NAME)) {
             mSecureCamera = true;
         } else {
             mSecureCamera = intent.getBooleanExtra(SECURE_CAMERA_EXTRA, false);
@@ -1056,6 +1373,13 @@ public class CameraActivity extends Activity
             Window win = getWindow();
             WindowManager.LayoutParams params = win.getAttributes();
             params.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
+            if (intent.getComponent().getClassName().equals(GESTURE_CAMERA_NAME)) {
+                params.flags |= WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
+                PowerManager pm = ((PowerManager) getSystemService(POWER_SERVICE));
+                mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
+                mWakeLock.acquire();
+                Log.d(TAG, "acquire wake lock");
+            }
             win.setAttributes(params);
 
             // Filter for screen off so that we can finish secure camera activity
@@ -1070,6 +1394,26 @@ public class CameraActivity extends Activity
                 registerReceiver(sScreenOffReceiver, filter);
             }
         }
+        GcamHelper.init(getContentResolver());
+
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        mOriginalMasterVol = mAudioManager.getMasterVolume();
+        mShutterVol =  SystemProperties.getInt("persist.camera.snapshot.volume", -1);
+        if (mShutterVol >= 0 && mShutterVol <= 100 )
+            mAudioManager.setMasterVolume(mShutterVol,0);
+
+        getWindow().requestFeature(Window.FEATURE_ACTION_BAR);
+        setContentView(R.layout.camera_filmstrip);
+
+        mActionBar = getActionBar();
+        mActionBar.addOnMenuVisibilityListener(this);
+
+        if (ApiHelper.HAS_ROTATION_ANIMATION) {
+            setRotationAnimation();
+        }
+
+        mMainHandler = new MainHandler(getMainLooper());
+
         mAboveFilmstripControlLayout =
                 (FrameLayout) findViewById(R.id.camera_above_filmstrip_layout);
         mAboveFilmstripControlLayout.setFitsSystemWindows(true);
@@ -1140,6 +1484,7 @@ public class CameraActivity extends Activity
             mFilmStripView.setDataAdapter(mDataAdapter);
             if (!isCaptureIntent()) {
                 mDataAdapter.requestLoad(getContentResolver());
+                mDataRequested = true;
             }
         } else {
             // Put a lock placeholder as the last image by setting its date to
@@ -1182,6 +1527,22 @@ public class CameraActivity extends Activity
         getContentResolver().registerContentObserver(
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true,
                 mLocalVideosObserver);
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mDeveloperMenuEnabled = prefs.getBoolean(CameraSettings.KEY_DEVELOPER_MENU, false);
+
+        Display display = getWindowManager().getDefaultDisplay();
+        Point size = new Point();
+        display.getSize(size);
+        int width = size.x;
+        int height = size.y;
+
+        int lower = Math.min(width, height);
+
+        int offset = lower * 10 / 100;
+        SETTING_LIST_WIDTH_1 = lower / 2 + offset;
+        SETTING_LIST_WIDTH_2 = lower / 2 - offset;
+        registerSDcardMountedReceiver();
     }
 
     private void setRotationAnimation() {
@@ -1201,7 +1562,12 @@ public class CameraActivity extends Activity
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        boolean result = super.dispatchTouchEvent(ev);
+        boolean result = false;
+        if (mFilmStripView.checkSendToModeView(ev)) {
+            result = mFilmStripView.sendToModeView(ev);
+        }
+        if (result == false)
+            result = super.dispatchTouchEvent(ev);
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
             // Real deletion is postponed until the next user interaction after
             // the gesture that triggers deletion. Until real deletion is performed,
@@ -1216,6 +1582,8 @@ public class CameraActivity extends Activity
 
     @Override
     public void onPause() {
+        if (mShutterVol >= 0 && mShutterVol <= 100)
+            mAudioManager.setMasterVolume(mOriginalMasterVol,0);
         // Delete photos that are pending deletion
         performDeletion();
         mOrientationListener.disable();
@@ -1239,16 +1607,8 @@ public class CameraActivity extends Activity
 
     @Override
     public void onResume() {
-        // TODO: Handle this in OrientationManager.
-        // Auto-rotate off
-        if (Settings.System.getInt(getContentResolver(),
-                Settings.System.ACCELEROMETER_ROTATION, 0) == 0) {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-            mAutoRotateScreen = false;
-        } else {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
-            mAutoRotateScreen = true;
-        }
+        if (mShutterVol >= 0 && mShutterVol <= 100)
+            mAudioManager.setMasterVolume(mShutterVol,0);
 
         UsageStatistics.onEvent(UsageStatistics.COMPONENT_CAMERA,
                 UsageStatistics.ACTION_FOREGROUNDED, this.getClass().getSimpleName());
@@ -1275,6 +1635,7 @@ public class CameraActivity extends Activity
                 // If it's secure camera, requestLoad() should not be called
                 // as it will load all the data.
                 mDataAdapter.requestLoad(getContentResolver());
+                mThumbnailDrawable = null;
             }
         }
         mLocalImagesObserver.setActivityPaused(false);
@@ -1283,8 +1644,8 @@ public class CameraActivity extends Activity
         //This is a temporal solution to share LED resource
         //as Android doesn’t have any default intent to share the state.
         // if the led flash light is open, turn it off
-        Log.d(TAG, "send the turn off LED Flashlight the broadcast");
-        Intent intent = new Intent("qualcomm.android.LEDFlashlight.appWidgetUpdate");
+        Log.d(TAG, "send the turn off Flashlight broadcast");
+        Intent intent = new Intent("org.codeaurora.snapcam.action.CLOSE_FLASHLIGHT");
         intent.putExtra("camera_led", true);
         sendBroadcast(intent);
     }
@@ -1305,11 +1666,18 @@ public class CameraActivity extends Activity
 
     @Override
     public void onDestroy() {
+        if (mWakeLock != null && mWakeLock.isHeld()) {
+            mWakeLock.release();
+            Log.d(TAG, "wake lock release");
+        }
+        if (mShutterVol >= 0 && mShutterVol <= 100)
+            mAudioManager.setMasterVolume(mOriginalMasterVol,0);
         if (mSecureCamera) {
             unregisterReceiver(mScreenOffReceiver);
         }
         getContentResolver().unregisterContentObserver(mLocalImagesObserver);
         getContentResolver().unregisterContentObserver(mLocalVideosObserver);
+        unregisterReceiver(mSDcardMountedReceiver);
 
         super.onDestroy();
     }
@@ -1354,8 +1722,8 @@ public class CameraActivity extends Activity
         }
     }
 
-    public boolean isAutoRotateScreen() {
-        return mAutoRotateScreen;
+    public void setPreviewGestures(PreviewGestures previewGestures) {
+        mFilmStripView.setPreviewGestures(previewGestures);
     }
 
     protected void updateStorageSpace() {
@@ -1429,7 +1797,6 @@ public class CameraActivity extends Activity
             return;
         }
 
-        mIsModuleSwitchInProgress = true;
         CameraHolder.instance().keep();
         closeModule(mCurrentModule);
         setModuleFromIndex(moduleIndex);
@@ -1444,7 +1811,6 @@ public class CameraActivity extends Activity
         // starts up.
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.edit().putInt(CameraSettings.KEY_STARTUP_MODULE_INDEX, moduleIndex).apply();
-        mIsModuleSwitchInProgress = false;
     }
 
     /**

@@ -17,6 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="1175086483881127797">"相机"</string>
+    <string name="snapcam_app_name">骁龙相机</string>
     <string name="video_camera_label" msgid="1723708322021743770">"摄像机"</string>
     <string name="details_ms" msgid="6618163484662724641">"%1$02d:%2$02d"</string>
     <string name="details_hms" msgid="4842276230698703554">"%1$d:%2$02d:%3$02d"</string>
@@ -275,6 +276,9 @@
     <string name="time_lapse_hours" msgid="5294001144133261436">"小时"</string>
     <string name="time_lapse_interval_set" msgid="2418594453248958440">"完成"</string>
     <string name="set_time_interval" msgid="2531393962847535331">"设置时间间隔"</string>
+    <string name="pref_camera_video_hdr_title">视频HDR</string>
+    <string name="pref_camera_video_hdr_entry_off">@string/setting_off</string>
+    <string name="pref_camera_video_hdr_entry_on">@string/setting_on</string>
     <string name="set_time_interval_help" msgid="64145154088021389">"延时拍摄功能已关闭，要设置时间间隔，请先开启该功能。"</string>
     <string name="set_duration" msgid="1638453882581604341">"设置倒数时间（秒）"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"拍照倒计时中"</string>
@@ -395,6 +399,7 @@
     <string name="pref_camera_video_duration_entry_mms">"30 秒(MMS)"</string>
     <string name="pref_camera_video_duration_entry_10">"10 分钟"</string>
     <string name="pref_camera_video_duration_entry_30">"30 分钟"</string>
+    <string name="pref_camera_video_duration_entry_nolimit">"无限制"</string>
 
    <!-- Settings screen, Select hfr title -->
     <string name="pref_camera_hfr_title">"视频高帧率"</string>
@@ -486,6 +491,7 @@
     <string name="error_app_unsupported_dis">DIS不支持当前的分辨率设置</string>
 
     <string name="pref_camera_longshot_title">连拍</string>
+    <string name="msg_cancel_longshot_for_limited_memory">内存不足, 取消连拍</string>
     <string name="pref_camera_skinToneEnhancement_title">肤色增强</string>
 
     <!-- The message is shown in toast when HDR or scene mode is enabled -->
@@ -499,6 +505,9 @@
 
     <string name="pref_camera_ae_bracket_hdr_title">自动包围曝光</string>
 
+    <!-- Settings screen, Selectable HDR need 1x frame title -->
+    <string name="pref_camera_hdr_need_1x_title">多帧HDR</string>
+
     <!-- Settings screen, Selectable advanced features title -->
     <string name="pref_camera_advanced_features_title">高级特性</string>
     <!-- Settings screen, Selectable Zone Af dialog radio button choices -->
@@ -511,6 +520,25 @@
     <string name="pref_camera_auto_hdr_entry_enable">开</string>
     <string name="pref_camera_auto_hdr_entry_disable">关</string>
 
+    <!-- The message is shown in toast when click showOnMap Menu and there is no map app -->
+    <string name="map_activity_not_found_err">没有地图应用显示地理位置信息</string>
+
     <!-- toast about switch storage -->
     <string name="on_switch_save_path_to_sdcard">内部存储空间不足，已切换存储到SD卡</string>
+
+    <!-- The alas of CameraActivity for gesture operation -->
+    <string name="camera_gesture_title">打开相机</string>
+
+    <string name="remaining_photos_format">剩余 %d 张</string>
+    <string name="pref_camera_tsmakeup_title">美颜</string>
+    <string name="pref_camera_tsmakeup_entry_on">开</string>
+    <string name="pref_camera_tsmakeup_entry_off">关</string>
+    <string name="pref_camera_tsmakeup_custom">自定义</string>
+    <string name="pref_camera_tsmakeup_level_whiten">美白</string>
+    <string name="pref_camera_tsmakeup_level_clean">磨皮</string>
+    <string name="text_tsmakeup_alert_title">警告</string>
+    <string name="text_tsmakeup_alert_msg">实时美颜需要开启人脸检测功能，是否开启？</string>
+    <string name="text_tsmakeup_alert_continue">继续</string>
+    <string name="text_tsmakeup_alert_quit">退出</string>
+
 </resources>

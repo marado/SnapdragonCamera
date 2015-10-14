@@ -1,5 +1,5 @@
 <!--
-    Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+    Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 
     Not a Contribution.
 
@@ -25,6 +25,8 @@
     <string name="pref_video_quality_entry_wvga" translatable="false">WVGA</string>
     <!-- Video quality setting entry. Videos will be recorded in VGA quality. [CHAR LIMIT=24] -->
     <string name="pref_video_quality_entry_vga" translatable="false">VGA</string>
+    <!-- Video quality setting entry. Videos will be recorded in HVGA quality. [CHAR LIMIT=24] -->
+    <string name="pref_video_quality_entry_hvga" translatable="false">HVGA</string>
     <!-- Video quality setting entry. Videos will be recorded in WQVGA quality. [CHAR LIMIT=24] -->
     <string name="pref_video_quality_entry_wqvga" translatable="false">WQVGA</string>
     <!-- Video quality setting entry. Videos will be recorded in CIF quality. [CHAR LIMIT=24] -->
@@ -97,6 +99,7 @@
     <string name="pref_camera_video_duration_entry_mms">30 seconds(MMS)</string>
     <string name="pref_camera_video_duration_entry_10">10 minutes</string>
     <string name="pref_camera_video_duration_entry_30">30 minutes</string>
+    <string name="pref_camera_video_duration_entry_nolimit">no limit</string>
 
     <!-- Default Skin Tone Enhancement setting. Do not translate. -->
     <string name="pref_camera_skinToneEnhancement_default">disable</string>
@@ -283,7 +286,7 @@
     <string name="pref_camera_video_tnr_default" translatable="false">off</string>
 
     <!-- Default face  detection setting. -->
-    <string name="pref_camera_facedetection_default" translatable="false">on</string>
+    <string name="pref_camera_facedetection_default" translatable="false">off</string>
 
     <!-- Settings screen, Select Face Detection -->
     <string name="pref_camera_facedetection_title">Face Detection</string>
@@ -324,6 +327,9 @@
 
      <!-- The message is shown in dialog when the app encounters an unsupported video resolution-->
      <string name="error_app_unsupported">Unsupported video resolution for this encoder type</string>
+
+     <!-- The message is shown in dialog when the app encounters an unsupported video profile-->
+     <string name="error_app_unsupported_profile">Unsupported video profile</string>
 
     <!--The message is shown in dialog when the raw snapshot is selected in zsl mode-->
     <string name="error_app_unsupported_raw">Raw picture format is not supported
@@ -822,14 +828,14 @@
     <string name="pref_hdr_mode_value_multi_frame">hdr-mode-multiframe</string>
 
     <!-- Settings screen, Selectable HDR need 1x frame default value -->
-    <string name="pref_camera_hdr_need_1x_default">true</string>
+    <string name="pref_camera_hdr_need_1x_default">@string/pref_hdr_need_1x_value_true</string>
 
     <!-- Settings screen, Selectable HDR need 1x frame title -->
     <string name="pref_camera_hdr_need_1x_title">HDR need 1x frame</string>
 
     <!-- Settings screen, Selectable HDR need 1x frame radio button choices -->
-    <string name="pref_camera_hdr_need_1x_entry_false">False</string>
-    <string name="pref_camera_hdr_need_1x_entry_true">True</string>
+    <string name="pref_camera_hdr_need_1x_entry_false">@string/setting_off</string>
+    <string name="pref_camera_hdr_need_1x_entry_true">@string/setting_on</string>
 
     <!-- HDR need 1x frame entry values. Do not translate. -->
     <string name="pref_hdr_need_1x_value_false">false</string>
@@ -850,6 +856,9 @@
     <string name="pref_camera_video_rotation_entry_180">180</string>
     <string name="pref_camera_video_rotation_entry_270">270</string>
 
+    <!-- The message is shown in toast when click showOnMap Menu and there is no map app -->
+    <string name="map_activity_not_found_err">There is no map app for show location.</string>
+
     <!-- Continous shot enable message -->
     <string name="longshot_enable_message">
             Advance features are not supported in continuous shot mode</string>
@@ -857,5 +866,21 @@
     <string name="advance_feature_enable_msg">
             Continuous shot is not supported when advance features are enabled</string>
 
+    <!-- The alas of CameraActivity for gesture operation -->
+    <string name="camera_gesture_title">Launch camera</string>
+     <string name="pref_camera_tsmakeup_title">Beautification</string>
+     <string name="pref_camera_tsmakeup_entry_on">On</string>
+     <string name="pref_camera_tsmakeup_entry_off">Off</string>
+     <string name="pref_camera_tsmakeup_default" translatable="false">Off</string>
+     <string name="pref_camera_tsmakeup_level_default" translatable="false">60</string>
+     <string name="pref_camera_tsmakeup_custom">Custom</string>
+     <string name="pref_camera_tsmakeup_level_whiten">Whiten</string>
+     <string name="pref_camera_tsmakeup_level_clean">Soften</string>
+     <string name="text_tsmakeup_alert_title">Warning</string>
+     <string name="text_tsmakeup_alert_msg">The beautification must turn on Face Detection, Continue or Quit?</string>
+     <string name="text_tsmakeup_alert_continue">Continue</string>
+     <string name="text_tsmakeup_alert_quit">Quit</string>
+
+    <string name="all_in_focus">All in Focus</string>
 </resources>
 

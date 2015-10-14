@@ -95,6 +95,7 @@ class AndroidCameraManagerImpl implements CameraManager {
     private static final int SEND_HISTOGRAM_DATA =   602;
     //LONGSHOT
     private static final int SET_LONGSHOT = 701;
+    private static final int STOP_LONGSHOT = 702;
     private static final int SET_AUTO_HDR_MODE = 801;
     private CameraHandler mCameraHandler;
     private android.hardware.Camera mCamera;
@@ -342,6 +343,10 @@ class AndroidCameraManagerImpl implements CameraManager {
 
                     case SET_LONGSHOT:
                         mCamera.setLongshot((Boolean) msg.obj);
+                        break;
+
+                    case STOP_LONGSHOT:
+                        mCamera.stopLongshot();
                         break;
 
                     case SET_AUTO_HDR_MODE:
@@ -592,6 +597,11 @@ class AndroidCameraManagerImpl implements CameraManager {
         }
 
         @Override
+        public void stopLongshot() {
+            mCameraHandler.sendEmptyMessage(STOP_LONGSHOT);
+        }
+
+        @Override
         public void setHistogramMode(CameraDataCallback cb) {
             mCameraHandler.obtainMessage(SET_HISTOGRAM_MODE, cb).sendToTarget();
         }
@@ -774,7 +784,7 @@ class AndroidCameraManagerImpl implements CameraManager {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (currentCamera.equals(mCamera.getCamera())) {
+                    if (currentCamera != null && currentCamera.equals(mCamera.getCamera())) {
                         mCallback.onPictureTaken(data, mCamera);
                     }
                 }

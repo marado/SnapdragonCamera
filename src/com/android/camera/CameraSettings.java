@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Locale;
 import android.os.Build;
 import java.util.StringTokenizer;
+import android.os.SystemProperties;
 
 /**
  *  Provides utilities and keys for Camera settings.
@@ -106,6 +107,7 @@ public class CameraSettings {
     public static final String KEY_ADVANCED_FEATURES = "pref_camera_advanced_features_key";
     public static final String KEY_HDR_MODE = "pref_camera_hdr_mode_key";
     public static final String KEY_HDR_NEED_1X = "pref_camera_hdr_need_1x_key";
+    public static final String KEY_DEVELOPER_MENU = "pref_developer_menu_key";
 
     public static final String KEY_VIDEO_SNAPSHOT_SIZE = "pref_camera_videosnapsize_key";
     public static final String KEY_VIDEO_HIGH_FRAME_RATE = "pref_camera_hfr_key";
@@ -228,6 +230,14 @@ public class CameraSettings {
     public static final String KEY_QC_SUPPORTED_MANUAL_EXPOSURE_MODES = "manual-exposure-modes";
     public static final String KEY_QC_SUPPORTED_MANUAL_WB_MODES = "manual-wb-modes";
 
+    public static final String KEY_TS_MAKEUP_UILABLE       = "pref_camera_tsmakeup_key";
+    public static final String KEY_TS_MAKEUP_PARAM         = "tsmakeup"; // on/of
+    public static final String KEY_TS_MAKEUP_PARAM_WHITEN  = "tsmakeup_whiten"; // 0~100
+    public static final String KEY_TS_MAKEUP_PARAM_CLEAN   = "tsmakeup_clean";  // 0~100
+    public static final String KEY_TS_MAKEUP_LEVEL         = "pref_camera_tsmakeup_level_key";
+    public static final String KEY_TS_MAKEUP_LEVEL_WHITEN  = "pref_camera_tsmakeup_whiten";
+    public static final String KEY_TS_MAKEUP_LEVEL_CLEAN   = "pref_camera_tsmakeup_clean";
+
     public static final String EXPOSURE_DEFAULT_VALUE = "0";
 
     public static final int CURRENT_VERSION = 5;
@@ -265,6 +275,7 @@ public class CameraSettings {
         VIDEO_QUALITY_TABLE.put("864x480",   CamcorderProfile.QUALITY_FWVGA);
         VIDEO_QUALITY_TABLE.put("800x480",   CamcorderProfile.QUALITY_WVGA);
         VIDEO_QUALITY_TABLE.put("640x480",   CamcorderProfile.QUALITY_VGA);
+        VIDEO_QUALITY_TABLE.put("480x360",   CamcorderProfile.QUALITY_HVGA);
         VIDEO_QUALITY_TABLE.put("400x240",   CamcorderProfile.QUALITY_WQVGA);
         VIDEO_QUALITY_TABLE.put("352x288",   CamcorderProfile.QUALITY_CIF);
         VIDEO_QUALITY_TABLE.put("320x240",   CamcorderProfile.QUALITY_QVGA);
@@ -287,15 +298,12 @@ public class CameraSettings {
         return group;
     }
 
-    public static String getSupportedHighestVideoQuality(int cameraId,
-            String defaultQuality,Parameters parameters) {
+    public static String getSupportedHighestVideoQuality(
+            int cameraId, Parameters parameters) {
         // When launching the camera app first time, we will set the video quality
         // to the first one (i.e. highest quality) in the supported list
         List<String> supported = getSupportedVideoQualities(cameraId,parameters);
-        if (supported == null) {
-            Log.e(TAG, "No supported video quality is found");
-            return defaultQuality;
-        }
+        assert (supported != null) : "No supported video quality is found";
         return supported.get(0);
     }
 
@@ -767,9 +775,19 @@ public class CameraSettings {
             filterUnsupportedOptions(group,
                     whiteBalance, mParameters.getSupportedWhiteBalance());
         }
+
         if (sceneMode != null) {
-            filterUnsupportedOptions(group,
-                    sceneMode, mParameters.getSupportedSceneModes());
+            List<String> supportedSceneModes = mParameters.getSupportedSceneModes();
+            List<String> supportedAdvancedFeatures =
+                    getSupportedAdvancedFeatures(mParameters);
+            if (CameraUtil.isSupported(
+                        mContext.getString(R.string
+                                .pref_camera_advanced_feature_value_refocus_on),
+                        supportedAdvancedFeatures)) {
+                supportedSceneModes.add(mContext.getString(R.string
+                            .pref_camera_advanced_feature_value_refocus_on));
+            }
+            filterUnsupportedOptions(group, sceneMode, supportedSceneModes);
         }
         if (flashMode != null) {
             filterUnsupportedOptions(group,
@@ -808,6 +826,30 @@ public class CameraSettings {
                 !GcamHelper.hasGcamCapture() || isFrontCamera)) {
             removePreference(group, cameraHdrPlus.getKey());
         }
+
+        if (SystemProperties.getBoolean("persist.env.camera.saveinsd", false)) {
+            final String CAMERA_SAVEPATH_SDCARD = "1";
+            final int CAMERA_SAVEPATH_SDCARD_IDX = 1;
+            final int CAMERA_SAVEPATH_PHONE_IDX = 0;
+            ListPreference savePath = group.findPreference(KEY_CAMERA_SAVEPATH);
+            SharedPreferences pref = group.getSharedPreferences();
+            String savePathValue = null;
+            if (pref != null) {
+                savePathValue = pref.getString(KEY_CAMERA_SAVEPATH, CAMERA_SAVEPATH_SDCARD);
+            }
+            if (savePath != null && CAMERA_SAVEPATH_SDCARD.equals(savePathValue)) {
+                // If sdCard is present, set sdCard as default save path.
+                // Only for the first time when camera start.
+                if (SDCard.instance().isWriteable()) {
+                    Log.d(TAG, "set Sdcard as save path.");
+                    savePath.setValueIndex(CAMERA_SAVEPATH_SDCARD_IDX);
+                } else {
+                    Log.d(TAG, "set Phone as save path when sdCard is unavailable.");
+                    savePath.setValueIndex(CAMERA_SAVEPATH_PHONE_IDX);
+                }
+           }
+        }
+
         qcomInitPreferences(group);
     }
 
@@ -843,7 +885,6 @@ public class CameraSettings {
         exposure.setEntries(entries);
         exposure.setLabels(labels);
         exposure.setEntryValues(entryValues);
-        exposure.setLargeIconIds(icons);
     }
 
     private void buildCameraId(
@@ -942,12 +983,12 @@ public class CameraSettings {
         editor.apply();
     }
 
-    public static void upgradeGlobalPreferences(SharedPreferences pref) {
-        upgradeOldVersion(pref);
+    public static void upgradeGlobalPreferences(SharedPreferences pref, Context context) {
+        upgradeOldVersion(pref, context);
         upgradeCameraId(pref);
     }
 
-    private static void upgradeOldVersion(SharedPreferences pref) {
+    private static void upgradeOldVersion(SharedPreferences pref, Context context) {
         int version;
         try {
             version = pref.getInt(KEY_VERSION, 0);
@@ -970,7 +1011,7 @@ public class CameraSettings {
             } else if (quality.equals("75")) {
                 quality = "fine";
             } else {
-                quality = "superfine";
+                quality = context.getString(R.string.pref_camera_jpegquality_default);
             }
             editor.putString(KEY_JPEG_QUALITY, quality);
             version = 2;
@@ -1057,7 +1098,7 @@ public class CameraSettings {
         // we may write the preference to wrong camera later.
         preferences.setLocalId(context, currentCameraId);
 
-        upgradeGlobalPreferences(preferences.getGlobal());
+        upgradeGlobalPreferences(preferences.getGlobal(), context);
         upgradeLocalPreferences(preferences.getLocal());
 
         // Write back the current camera id because parameters are related to

@@ -21,6 +21,8 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
+import com.android.camera.PhotoMenu;
+import com.android.camera.VideoMenu;
 import com.android.camera.ui.PieRenderer;
 import com.android.camera.ui.RenderOverlay;
 import com.android.camera.ui.ZoomRenderer;
@@ -54,6 +56,10 @@ public class PreviewGestures
     private boolean mEnabled;
     private boolean mZoomOnly;
     private GestureDetector mGestureDetector;
+    private PhotoMenu mPhotoMenu;
+    private VideoMenu mVideoMenu;
+    private boolean waitUntilNextDown;
+    private boolean setToFalse;
 
     private GestureDetector.SimpleOnGestureListener mGestureListener = new GestureDetector.SimpleOnGestureListener() {
         @Override
@@ -83,14 +89,35 @@ public class PreviewGestures
             if (mZoomOnly || mMode == MODE_ZOOM) return false;
             int deltaX = (int) (e1.getX() - e2.getX());
             int deltaY = (int) (e1.getY() - e2.getY());
-            if (deltaY > 2 * deltaX && deltaY > -2 * deltaX) {
-                // Open pie on swipe up
-                if (mPie != null && !mPie.showsItems()) {
-                    openPie();
-                    return true;
-                }
+
+            int orientation = 0;
+            if (mPhotoMenu != null)
+                orientation = mPhotoMenu.getOrientation();
+            else if (mVideoMenu != null)
+                orientation = mVideoMenu.getOrientation();
+
+            if (isLeftSwipe(orientation, deltaX, deltaY)) {
+                waitUntilNextDown = true;
+                if (mPhotoMenu != null && !mPhotoMenu.isMenuBeingShown())
+                    mPhotoMenu.openFirstLevel();
+                else if (mVideoMenu != null && !mVideoMenu.isMenuBeingShown())
+                    mVideoMenu.openFirstLevel();
+                return true;
             }
             return false;
+        }
+
+        private boolean isLeftSwipe(int orientation, int deltaX, int deltaY) {
+            switch (orientation) {
+                case 90:
+                    return deltaY > 0 && Math.abs(deltaY) > 2 * Math.abs(deltaX);
+                case 180:
+                    return deltaX > 0 && Math.abs(deltaX) > 2 * Math.abs(deltaY);
+                case 270:
+                    return deltaY < 0 && Math.abs(deltaY) > 2 * Math.abs(deltaX);
+                default:
+                    return deltaX < 0 && Math.abs(deltaX) > 2 * Math.abs(deltaY);
+            }
         }
     };
 
@@ -129,7 +156,36 @@ public class PreviewGestures
         return mEnabled;
     }
 
+    public void setPhotoMenu(PhotoMenu menu) {
+        mPhotoMenu = menu;
+    }
+
+    public void setVideoMenu(VideoMenu menu) {
+        mVideoMenu = menu;
+    }
+
+    public PhotoMenu getPhotoMenu() {
+        return mPhotoMenu;
+    }
+
+    public VideoMenu getVideoMenu() {
+        return mVideoMenu;
+    }
+
     public boolean dispatchTouch(MotionEvent m) {
+        if (setToFalse) {
+            waitUntilNextDown = false;
+            setToFalse = false;
+        }
+        if (waitUntilNextDown) {
+            if (MotionEvent.ACTION_UP != m.getActionMasked()
+                    && MotionEvent.ACTION_CANCEL != m.getActionMasked())
+                return true;
+            else {
+                setToFalse = true;
+                return true;
+            }
+        }
         if (!mEnabled) {
             return false;
         }
@@ -142,6 +198,37 @@ public class PreviewGestures
         // If pie is open, redirects all the touch events to pie.
         if (mPie != null && mPie.isOpen()) {
             return sendToPie(m);
+        }
+
+        if (mPhotoMenu != null) {
+            if (mPhotoMenu.isMenuBeingShown()) {
+                if (!mPhotoMenu.isMenuBeingAnimated()) {
+                    waitUntilNextDown = true;
+                    mPhotoMenu.closeView();
+                }
+                return true;
+            }
+            if (mPhotoMenu.isPreviewMenuBeingShown()) {
+                waitUntilNextDown = true;
+                mPhotoMenu.animateSlideOutPreviewMenu();
+                return true;
+            }
+        }
+
+        if (mVideoMenu != null) {
+            if (mVideoMenu.isMenuBeingShown()) {
+                if (!mVideoMenu.isMenuBeingAnimated()) {
+                    waitUntilNextDown = true;
+                    mVideoMenu.closeView();
+                }
+                return true;
+            }
+
+            if (mVideoMenu.isPreviewMenuBeingShown()) {
+                waitUntilNextDown = true;
+                mVideoMenu.animateSlideOutPreviewMenu();
+                return true;
+            }
         }
 
         // If pie is not open, send touch events to gesture detector and scale
@@ -160,6 +247,10 @@ public class PreviewGestures
             }
         }
         return true;
+    }
+
+    public boolean waitUntilNextDown() {
+        return waitUntilNextDown;
     }
 
     private MotionEvent makeCancelEvent(MotionEvent m) {

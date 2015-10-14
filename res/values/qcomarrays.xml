@@ -203,6 +203,19 @@
         <item>normal</item>
     </string-array>
 
+    <!-- Rough estimates of jpeg compression ratio corresponding to qualities defined above. -->
+    <integer-array name="jpegquality_compression_ratio">
+        <item>48</item>
+        <item>38</item>
+        <item>31</item>
+        <item>20</item>
+        <item>11</item>
+        <item>6</item>
+        <item>20</item>
+        <item>31</item>
+        <item>38</item>
+    </integer-array>
+
     <!-- Camera Preferences Color effect dialog box entries -->
     <string-array name="pref_camera_coloreffect_entries" translatable="false">
         <item>@string/pref_camera_coloreffect_entry_none</item>
@@ -221,6 +234,24 @@
         <item>@string/pref_camera_coloreffect_entry_bluetint</item>
         <item>@string/pref_camera_coloreffect_entry_greentint</item>
     </string-array>
+
+    <array name="coloreffect_thumbnails" translatable="false">
+        <item>@drawable/thumb_filter_nofilter</item>
+        <item>@drawable/thumb_filter_monochrome</item>
+        <item>@drawable/thumb_filter_sepia</item>
+        <item>@drawable/thumb_filter_negative</item>
+        <item>@drawable/thumb_filter_solarize</item>
+        <item>@drawable/thumb_filter_posterize</item>
+        <item>@drawable/thumb_filter_aqua</item>
+        <item>@drawable/thumb_filter_emboss</item>
+        <item>@drawable/thumb_filter_sketch</item>
+        <item>@drawable/thumb_filter_neon</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+    </array>
 
     <string-array name="pref_camera_coloreffect_entryvalues" translatable="false">
         <item>none</item>
@@ -513,6 +544,7 @@
     <item>@string/pref_camera_video_duration_entry_mms</item>
     <item>@string/pref_camera_video_duration_entry_10</item>
     <item>@string/pref_camera_video_duration_entry_30</item>
+    <item>@string/pref_camera_video_duration_entry_nolimit</item>
     </string-array>
 
     <!-- The numbers are in minutes, except -1 means the duration suitable for mms. -->
@@ -520,6 +552,7 @@
     <item>-1</item>
     <item>10</item>
     <item>30</item>
+    <item>0</item>
     </string-array>
 
     <!-- Camera Preferences Skin Tone Enhancement dialog box entries -->
@@ -733,6 +766,45 @@
     <string-array name="pref_camera_hdr_need_1x_entryvalues" translatable="false">
         <item>@string/pref_hdr_need_1x_value_false</item>
         <item>@string/pref_hdr_need_1x_value_true</item>
+    </string-array>
+        <string-array name="pref_camera_tsmakeup_entries">
+        <item>@string/pref_camera_tsmakeup_entry_off</item>
+        <item>@string/pref_camera_tsmakeup_entry_on</item>
+    </string-array>
+
+    <!-- Do not localize entryvalues -->
+    <string-array name="pref_camera_tsmakeup_entryvalues">
+        <item>Off</item>
+        <item>On</item>
+    </string-array>
+
+    <!-- Camera Preferences Color effect dialog box entries -->
+    <string-array name="pref_camera_tsmakeup_level_entries" translatable="false">
+        <item>@string/pref_camera_tsmakeup_entry_off</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>@string/pref_camera_tsmakeup_custom</item>
+    </string-array>
+
+    <array name="tsmakeup_level_thumbnails" translatable="false">
+        <item>@drawable/ic_ts_makeup_level_off_selector</item>
+        <item>@drawable/ic_ts_makeup_level_1_selector</item>
+        <item>@drawable/ic_ts_makeup_level_2_selector</item>
+        <item>@drawable/ic_ts_makeup_level_3_selector</item>
+        <item>@drawable/ic_ts_makeup_custom_selector</item>
+    </array>
+
+    <string-array name="pref_camera_tsmakeup_level_entryvalues" translatable="false">
+        <item>@string/pref_camera_tsmakeup_default</item>
+        <item>20</item>
+        <item>60</item>
+        <item>100</item>
+        <item>none</item>
+    </string-array>
+    <string-array name="pref_ts_makeup_icons" translatable="false">
+        <item>@drawable/ic_ts_makeup_off</item>
+        <item>@drawable/ic_ts_makeup_on</item>
     </string-array>
 
 </resources>
