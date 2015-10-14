@@ -3386,6 +3386,10 @@ public class PhotoModule
         //value: 4 - 1920x1080
         int preview_resolution = SystemProperties.getInt("persist.camera.preview.size", 0);
         switch (preview_resolution) {
+            case 0: {
+                Log.v(TAG, "Preview resolution as per Snapshot aspect ratio");
+                break;
+            }
             case 1: {
                 optimalSize.width = 640;
                 optimalSize.height = 480;
@@ -3411,7 +3415,15 @@ public class PhotoModule
                 break;
             }
             default: {
-                Log.v(TAG, "Preview resolution as per Snapshot aspect ratio");
+                int preview_height = SystemProperties.getInt("persist.camera.preview.vsize", 0);
+                optimalSize.width = preview_resolution;
+                if (preview_height == 0) {
+                    optimalSize.height = preview_resolution * 3 / 4;
+                } else {
+                    optimalSize.height = preview_height;
+                }
+                Log.v(TAG, "Preview resolution hardcoded to " +
+                        optimalSize.width + "x" + optimalSize.height);
                 break;
             }
         }
