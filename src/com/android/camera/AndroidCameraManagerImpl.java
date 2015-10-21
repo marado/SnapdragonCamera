@@ -847,7 +847,7 @@ class AndroidCameraManagerImpl implements CameraManager {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (currentCamera.equals(mCamera.getCamera())) {
+                    if (currentCamera != null && currentCamera.equals(mCamera.getCamera())) {
                         mCallback.onPreviewFrame(data, mCamera);
                     }
                 }
