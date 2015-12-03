@@ -214,6 +214,8 @@ public class PhotoModule
     private static final String PERSIST_PREVIEW_RESTART = "persist.camera.feature.restart";
     private static final String PERSIST_CAPTURE_ANIMATION = "persist.camera.capture.animate";
     private static final String PERSIST_LONGSHOT_MAX_SNAP = "persist.camera.longshot.max";
+    private static final String PERSIST_THUMBNAIL_WIDTH = "persist.camera.thmb.width";
+    private static final String PERSIST_THUMBNAIL_HEIGHT = "persist.camera.thmb.height";
     private static int mLongShotMaxSnap = -1;
 
     private static final int MINIMUM_BRIGHTNESS = 0;
@@ -3448,17 +3450,23 @@ public class PhotoModule
         Log.v(TAG, "Preview size is " + optimalSize.width + "x" + optimalSize.height);
         size = mParameters.getPictureSize();
 
-        // Set jpegthumbnail size
-        // Set a jpegthumbnail size that is closest to the Picture height and has
-        // the right aspect ratio.
-        List<Size> supported = mParameters.getSupportedJpegThumbnailSizes();
-        optimalSize = CameraUtil.getOptimalJpegThumbnailSize(supported,
-                (double) size.width / size.height);
-        original = mParameters.getJpegThumbnailSize();
-        if (!original.equals(optimalSize)) {
+        optimalSize.width = SystemProperties.getInt(PERSIST_THUMBNAIL_WIDTH, -1);
+        optimalSize.height = SystemProperties.getInt(PERSIST_THUMBNAIL_HEIGHT, -1);
+
+        if ((optimalSize.width == -1) || (optimalSize.height == -1)) {
+            // Set jpegthumbnail size
+            // Set a jpegthumbnail size that is closest to the Picture height and has
+            // the right aspect ratio.
+            List<Size> supported = mParameters.getSupportedJpegThumbnailSizes();
+            optimalSize = CameraUtil.getOptimalJpegThumbnailSize(supported,
+                    (double) size.width / size.height);
+            original = mParameters.getJpegThumbnailSize();
+            if (!original.equals(optimalSize)) {
+                mParameters.setJpegThumbnailSize(optimalSize.width, optimalSize.height);
+            }
+        } else {
             mParameters.setJpegThumbnailSize(optimalSize.width, optimalSize.height);
         }
-
         Log.v(TAG, "Thumbnail size is " + optimalSize.width + "x" + optimalSize.height);
 
         // Since changing scene mode may change supported values, set scene mode
