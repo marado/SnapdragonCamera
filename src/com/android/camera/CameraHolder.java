@@ -25,6 +25,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.camera.CameraManager.CameraProxy;
@@ -57,6 +58,8 @@ public class CameraHolder {
     private int mCameraId = -1;  // current camera id
     private int mBackCameraId = -1;
     private int mFrontCameraId = -1;
+    private int mLegacyCameraId = -1;
+    private boolean mDualCameraSupported = false;
     private final CameraInfo[] mInfo;
     private static CameraProxy mMockCamera[];
     private static CameraInfo mMockCameraInfo[];
@@ -176,8 +179,15 @@ public class CameraHolder {
                 mBackCameraId = i;
             } else if (mFrontCameraId == -1 && mInfo[i].facing == CameraInfo.CAMERA_FACING_FRONT) {
                 mFrontCameraId = i;
+            } else {
+                mLegacyCameraId = i;
             }
         }
+
+        mDualCameraSupported = SystemProperties.getBoolean("persist.camera.dual.camera", false);
+        // if legacy camera was not set, then fallback to default back id.
+        if(mLegacyCameraId == -1)
+            mLegacyCameraId = mBackCameraId;
     }
 
     public int getNumberOfCameras() {
@@ -294,5 +304,13 @@ public class CameraHolder {
 
     public int getFrontCameraId() {
         return mFrontCameraId;
+    }
+
+    public int getLegacyCameraId() {
+        return mLegacyCameraId;
+    }
+
+    public boolean isDualCameraSupported() {
+        return mDualCameraSupported;
     }
 }

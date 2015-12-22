@@ -21,7 +21,9 @@ import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -112,7 +114,8 @@ public class PhotoModule
         ShutterButton.OnShutterButtonListener,
         MediaSaveService.Listener,
         OnCountDownFinishedListener,
-        SensorEventListener, MakeupLevelListener {
+        SensorEventListener, MakeupLevelListener,
+        OnSharedPreferenceChangeListener {
 
     private static final String TAG = "CAM_PhotoModule";
 
@@ -490,7 +493,26 @@ public class PhotoModule
         // This must be done before startPreview.
         mIsImageCaptureIntent = isImageCaptureIntent();
 
-        mPreferences.setLocalId(mActivity, mCameraId);
+        // check dual camera support
+        if(CameraHolder.instance().isDualCameraSupported()) {
+            int camId = (mCameraId == CameraHolder.instance().getLegacyCameraId())?
+                    CameraHolder.instance().getBackCameraId():mCameraId;
+            mPreferences.setLocalId(mActivity, camId);
+
+            if(useLegacyCameraMode(mPreferences)) {
+                if(mCameraId == CameraHolder.instance().getBackCameraId()) {
+                    mCameraId = CameraHolder.instance().getLegacyCameraId();
+                }
+            } else if(mCameraId == CameraHolder.instance().getLegacyCameraId()) {
+                // legacy mode is not required, switch to dual mode
+                mCameraId = CameraHolder.instance().getBackCameraId();
+            }
+
+            mPreferences.registerOnSharedPreferenceChangeListener(this);
+        } else {
+            mPreferences.setLocalId(mActivity, mCameraId);
+        }
+
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
 
         if (mOpenCameraThread == null) {
@@ -519,6 +541,35 @@ public class PhotoModule
 
         mSoundPool = new SoundPool(1, AudioManager.STREAM_NOTIFICATION, 0);
         mRefocusSound = mSoundPool.load(mActivity, R.raw.camera_click_x5, 1);
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(
+            SharedPreferences sharedPreferences, String key) {
+        if(CameraSettings.KEY_CAMERA_HDR.equals(key)) {
+            if(mCameraId == CameraHolder.instance().getBackCameraId()) {
+                onCameraPickerClicked(CameraHolder.instance().getLegacyCameraId());
+            } else if (mCameraId == CameraHolder.instance().getLegacyCameraId()) {
+                onCameraPickerClicked(CameraHolder.instance().getBackCameraId());
+            }
+        }
+    }
+
+    private boolean useLegacyCameraMode(ComboPreferences preferences) {
+        if(CameraHolder.instance().isDualCameraSupported() == false) {
+            return true;
+        }
+
+        String onValue = mActivity.getString(R.string.setting_on_value);
+        String hdr = preferences.getString(CameraSettings.KEY_CAMERA_HDR,
+                mActivity.getString(R.string.pref_camera_hdr_default));
+
+        if(hdr.equals(onValue)) {
+            // HDR is on, use single camera mode
+            return true;
+        }
+
+        return false;
     }
 
     private void initializeControlByIntent() {
@@ -627,7 +678,6 @@ public class PhotoModule
         Log.v(TAG, "Start to switch camera. id=" + mPendingSwitchCameraId);
         mCameraId = mPendingSwitchCameraId;
         mPendingSwitchCameraId = -1;
-        setCameraId(mCameraId);
 
         // from onPause
         try {
@@ -644,8 +694,23 @@ public class PhotoModule
         if (mFocusManager != null) mFocusManager.removeMessages();
 
         // Restart the camera and initialize the UI. From onCreate.
-        mPreferences.setLocalId(mActivity, mCameraId);
+        if(CameraHolder.instance().isDualCameraSupported()) {
+            // use main back camera ID for legacy camera preferences as well.
+            int camId = (mCameraId == CameraHolder.instance().getLegacyCameraId())?
+                    CameraHolder.instance().getBackCameraId():mCameraId;
+            mPreferences.setLocalId(mActivity, camId);
+        } else {
+            mPreferences.setLocalId(mActivity, mCameraId);
+        }
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
+
+        if(useLegacyCameraMode(mPreferences)
+                && mCameraId == CameraHolder.instance().getBackCameraId()) {
+            mCameraId = CameraHolder.instance().getLegacyCameraId();
+        }
+
+        setCameraId(mCameraId);
+
         mCameraDevice = CameraUtil.openCamera(
                 mActivity, mCameraId, mHandler,
                 mActivity.getCameraOpenErrorCallback());
@@ -675,7 +740,8 @@ public class PhotoModule
 
     protected void setCameraId(int cameraId) {
         ListPreference pref = mPreferenceGroup.findPreference(CameraSettings.KEY_CAMERA_ID);
-        pref.setValue("" + cameraId);
+        if(pref != null)
+            pref.setValue("" + cameraId);
     }
 
     // either open a new camera or switch cameras
@@ -2303,6 +2369,8 @@ public class PhotoModule
         if (msensor != null) {
             mSensorManager.unregisterListener(this, msensor);
         }
+
+        mPreferences.unregisterOnSharedPreferenceChangeListener(this);
 
         Log.d(TAG, "remove idle handleer in onPause");
         removeIdleHandler();

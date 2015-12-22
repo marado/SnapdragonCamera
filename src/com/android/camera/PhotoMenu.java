@@ -224,7 +224,7 @@ public class PhotoMenu extends MenuController
                 CameraSettings.KEY_MANUAL_FOCUS
         };
 
-        initSwitchItem(CameraSettings.KEY_CAMERA_ID, mFrontBackSwitcher);
+        initFrontBackSwitchItem(CameraSettings.KEY_CAMERA_ID, mFrontBackSwitcher);
     }
 
     protected class MakeupHandler extends Handler {
@@ -766,6 +766,70 @@ public class PhotoMenu extends MenuController
         } else {
             buttonSetEnabled(mFilterModeSwitcher, true);
         }
+    }
+
+    public void initFrontBackSwitchItem(final String prefKey, View switcher) {
+        final IconListPreference pref =
+                (IconListPreference) mPreferenceGroup.findPreference(prefKey);
+        if (pref == null)
+            return;
+
+        int[] iconIds = pref.getLargeIconIds();
+        int resid = -1;
+        int index = pref.findIndexOfValue(pref.getValue());
+
+        if(CameraHolder.instance().isDualCameraSupported()) {
+            CharSequence[] values = pref.getEntryValues();
+            if(values.length < 3) {
+                // not enough cameras for dual camera mode.
+                switcher.setVisibility(View.INVISIBLE);
+                mPreferences.add(pref);
+                mPreferenceMap.put(pref, switcher);
+                return;
+            } else if(index == 2) {
+                // for single cam mode, use res at main back camera index
+                index = 0;
+            }
+        }
+
+        if (!pref.getUseSingleIcon() && iconIds != null) {
+            // Each entry has a corresponding icon.
+            resid = iconIds[index];
+        } else {
+            // The preference only has a single icon to represent it.
+            resid = pref.getSingleIcon();
+        }
+        ((ImageView) switcher).setImageResource(resid);
+        switcher.setVisibility(View.VISIBLE);
+        mPreferences.add(pref);
+        mPreferenceMap.put(pref, switcher);
+        switcher.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                IconListPreference pref = (IconListPreference) mPreferenceGroup
+                        .findPreference(prefKey);
+                if (pref == null)
+                    return;
+                int index = pref.findIndexOfValue(pref.getValue());
+                CharSequence[] values = pref.getEntryValues();
+                if(CameraHolder.instance().isDualCameraSupported()) {
+                    if(index == 1) {
+                        index = 0;
+                    } else {
+                        index = 1;
+                    }
+                } else {
+                    index = (index + 1) % values.length;
+                }
+                pref.setValueIndex(index);
+                ((ImageView) v).setImageResource(
+                        ((IconListPreference) pref).getLargeIconIds()[index]);
+                if (prefKey.equals(CameraSettings.KEY_CAMERA_ID))
+                    mListener.onCameraPickerClicked(index);
+                reloadPreference(pref);
+                onSettingChanged(pref);
+            }
+        });
     }
 
     public void initSwitchItem(final String prefKey, View switcher) {

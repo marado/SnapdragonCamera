@@ -25,7 +25,9 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
@@ -82,7 +84,8 @@ public class VideoModule implements CameraModule,
     CameraPreference.OnPreferenceChangedListener,
     ShutterButton.OnShutterButtonListener,
     MediaRecorder.OnErrorListener,
-    MediaRecorder.OnInfoListener {
+    MediaRecorder.OnInfoListener,
+    OnSharedPreferenceChangeListener {
 
     private static final String TAG = "CAM_VideoModule";
 
@@ -430,7 +433,27 @@ public class VideoModule implements CameraModule,
         CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), activity);
         mCameraId = getPreferredCameraId(mPreferences);
 
-        mPreferences.setLocalId(mActivity, mCameraId);
+        // check dual camera support
+        if(CameraHolder.instance().isDualCameraSupported()) {
+            // use main back camera ID for legacy camera preferences as well.
+            int camId = (mCameraId == CameraHolder.instance().getLegacyCameraId())?
+                    CameraHolder.instance().getBackCameraId():mCameraId;
+            mPreferences.setLocalId(mActivity, camId);
+
+            if(useLegacyCameraMode(mPreferences)) {
+                if(mCameraId == CameraHolder.instance().getBackCameraId()) {
+                    mCameraId = CameraHolder.instance().getLegacyCameraId();
+                }
+            } else if(mCameraId == CameraHolder.instance().getLegacyCameraId()) {
+                // legacy mode is not required, switch to dual mode
+                mCameraId = CameraHolder.instance().getBackCameraId();
+            }
+
+            mPreferences.registerOnSharedPreferenceChangeListener(this);
+        } else {
+            mPreferences.setLocalId(mActivity, mCameraId);
+        }
+
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
 
         mOrientationManager = new OrientationManager(mActivity);
@@ -477,6 +500,18 @@ public class VideoModule implements CameraModule,
 
         initializeVideoControl();
         mPendingSwitchCameraId = -1;
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(
+            SharedPreferences sharedPreferences, String key) {
+        if(CameraSettings.KEY_VIDEO_HIGH_FRAME_RATE.equals(key)) {
+            if(mCameraId == CameraHolder.instance().getBackCameraId()) {
+                onCameraPickerClicked(CameraHolder.instance().getLegacyCameraId());
+            } else if (mCameraId == CameraHolder.instance().getLegacyCameraId()) {
+                onCameraPickerClicked(CameraHolder.instance().getBackCameraId());
+            }
+        }
     }
 
     // SingleTapListener
@@ -1184,6 +1219,8 @@ public class VideoModule implements CameraModule,
 
         if (mLocationManager != null) mLocationManager.recordLocation(false);
         mOrientationManager.pause();
+
+        mPreferences.unregisterOnSharedPreferenceChangeListener(this);
 
         mHandler.removeMessages(CHECK_DISPLAY_ROTATION);
         mHandler.removeMessages(SWITCH_CAMERA);
@@ -2515,7 +2552,8 @@ public class VideoModule implements CameraModule,
 
     protected void setCameraId(int cameraId) {
         ListPreference pref = mPreferenceGroup.findPreference(CameraSettings.KEY_CAMERA_ID);
-        pref.setValue("" + cameraId);
+        if(pref != null)
+            pref.setValue("" + cameraId);
     }
 
     private void switchCamera() {
@@ -2526,13 +2564,28 @@ public class VideoModule implements CameraModule,
         Log.d(TAG, "Start to switch camera.");
         mCameraId = mPendingSwitchCameraId;
         mPendingSwitchCameraId = -1;
-        setCameraId(mCameraId);
 
         closeCamera();
         mUI.collapseCameraControls();
+
         // Restart the camera and initialize the UI. From onCreate.
-        mPreferences.setLocalId(mActivity, mCameraId);
+        if(CameraHolder.instance().isDualCameraSupported()) {
+            // use main back camera ID for legacy camera preferences as well.
+            int camId = (mCameraId == CameraHolder.instance().getLegacyCameraId())?
+                    CameraHolder.instance().getBackCameraId():mCameraId;
+            mPreferences.setLocalId(mActivity, camId);
+        } else {
+            mPreferences.setLocalId(mActivity, mCameraId);
+        }
         CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
+
+        if(useLegacyCameraMode(mPreferences)
+                && mCameraId == CameraHolder.instance().getBackCameraId()) {
+            mCameraId = CameraHolder.instance().getLegacyCameraId();
+        }
+
+        setCameraId(mCameraId);
+
         openCamera();
         readVideoPreferences();
         startPreview();
@@ -2719,7 +2772,6 @@ public class VideoModule implements CameraModule,
         // Disable all camera controls.
         mSwitchingCamera = true;
         switchCamera();
-
     }
 
     @Override
@@ -2763,4 +2815,22 @@ public class VideoModule implements CameraModule,
         }
     }
 
+    private boolean useLegacyCameraMode(SharedPreferences preferences) {
+        if(CameraHolder.instance().isDualCameraSupported() == false) {
+            return true;
+        }
+
+        String offValue = mActivity.getString(R.string.pref_camera_hfr_value_off);
+        String hfr = preferences.getString(CameraSettings.KEY_VIDEO_HIGH_FRAME_RATE,
+                mActivity.getString(R.string.pref_camera_hfr_default));
+
+        Log.d(TAG, "useLegacyCameraMode - HFR value: " + hfr);
+
+        if(!hfr.equals(offValue)) {
+            // HFR is on, use single camera mode
+            return true;
+        }
+
+        return false;
+    }
 }
