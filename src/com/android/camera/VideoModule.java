@@ -2157,10 +2157,11 @@ public class VideoModule implements CameraModule,
             mParameters.setPreviewFormat (ImageFormat.YV12);
         }
 
-        if ( (is1080pEnabled() || is720pEnabled())
-                && CameraUtil.isSupported(FORMAT_NV12_VENUS,
-                        CameraSettings.getSupportedPreviewFormats(mParameters)) ) {
-           Log.v(TAG, "1080p or 720p enabled, preview format set to NV12_VENUS");
+        // Set NV12_VENUS for preview stream, when below condition met
+        // If both preview & video resolution are exactly same
+        if ( (mDesiredPreviewWidth  == mProfile.videoFrameWidth) &&
+             (mDesiredPreviewHeight == mProfile.videoFrameHeight)) {
+           Log.v(TAG, "Preview is same as Video resolution, So preview format set to NV12_VENUS");
            mParameters.set(KEY_PREVIEW_FORMAT, FORMAT_NV12_VENUS);
         } else if (CameraUtil.isSupported(FORMAT_NV21,
                 CameraSettings.getSupportedPreviewFormats(mParameters))){
