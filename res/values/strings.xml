@@ -716,4 +716,5 @@ CHAR LIMIT = NONE] -->
     <string name="remaining_photos_format">%d left</string>
 
     <string name="refocus_toast">To re-focus last photo, tap here</string>
+    <string name="initial_recording_seconds">00:00</string>
  </resources>
