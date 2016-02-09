@@ -187,7 +187,6 @@ public class PhotoMenu extends MenuController
                 CameraSettings.KEY_EXPOSURE,
                 CameraSettings.KEY_WHITE_BALANCE,
                 CameraSettings.KEY_QC_CHROMA_FLASH,
-                CameraSettings.KEY_FOCUS_MODE,
                 CameraSettings.KEY_REDEYE_REDUCTION
         };
 
@@ -1088,16 +1087,7 @@ public class PhotoMenu extends MenuController
                 .findPreference(CameraSettings.KEY_COLOR_EFFECT);
         if (pref == null || pref.getValue() == null)
             return;
-
-        int[] iconIds = pref.getLargeIconIds();
-        int index = pref.findIndexOfValue(pref.getValue());
-        int resid = -1;
-        if (!pref.getUseSingleIcon() && iconIds != null) {
-            resid = iconIds[index];
-        } else {
-            resid = pref.getSingleIcon();
-        }
-        ((ImageView) button).setImageResource(resid);
+        changeFilterModeControlIcon(pref.getValue());
         button.setVisibility(View.VISIBLE);
         button.setOnClickListener(new OnClickListener() {
             @Override
@@ -1451,8 +1441,8 @@ public class PhotoMenu extends MenuController
         } else {
             mHdrSwitcher.setVisibility(View.VISIBLE);
         }
-
         updateFilterModeIcon(pref, pref);
+
         super.onSettingChanged(pref);
     }
 
