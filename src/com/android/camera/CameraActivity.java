@@ -187,8 +187,14 @@ public class CameraActivity extends Activity
     private PlaceholderManager mPlaceholderManager;
     private int mCurrentModuleIndex;
     private CameraModule mCurrentModule;
+    private PhotoModule mPhotoModule;
+    private VideoModule mVideoModule;
+    private WideAnglePanoramaModule mPanoModule;
     private FrameLayout mAboveFilmstripControlLayout;
-    private View mCameraModuleRootView;
+    private FrameLayout mCameraRootFrame;
+    private View mCameraPhotoModuleRootView;
+    private View mCameraVideoModuleRootView;
+    private View mCameraPanoModuleRootView;
     private FilmStripView mFilmStripView;
     private ProgressBar mBottomProgress;
     private View mPanoStitchingPanel;
@@ -197,8 +203,6 @@ public class CameraActivity extends Activity
     private OnScreenHint mStorageHint;
     private long mStorageSpaceBytes = Storage.LOW_STORAGE_THRESHOLD_BYTES;
     private boolean mSecureCamera;
-    // This is a hack to speed up the start of SecureCamera.
-    private static boolean sFirstStartAfterScreenOn = true;
     private int mLastRawOrientation;
     private MyOrientationEventListener mOrientationListener;
     private Handler mMainHandler;
@@ -333,33 +337,6 @@ public class CameraActivity extends Activity
         registerReceiver(mSDcardMountedReceiver, filter);
     }
 
-    // close activity when screen turns off
-    private BroadcastReceiver mScreenOffReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-
-            if (action.equals(Intent.ACTION_SCREEN_OFF)) {
-                if (mSecureCamera) {
-                    finish();
-                } else {
-                    mCurrentModule.onPauseBeforeSuper();
-                    mCurrentModule.onPauseAfterSuper();
-                }
-            }
-
-        }
-    };
-
-    private static BroadcastReceiver sScreenOffReceiver;
-
-    private static class ScreenOffReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            sFirstStartAfterScreenOn = true;
-        }
-    }
-
     private class MainHandler extends Handler {
         public MainHandler(Looper looper) {
             super(looper);
@@ -382,10 +359,6 @@ public class CameraActivity extends Activity
         mOnActionBarVisibilityListener = listener;
     }
 
-    public static boolean isFirstStartAfterScreenOn() {
-        return sFirstStartAfterScreenOn;
-    }
-
     public static boolean isPieMenuEnabled() {
         return PIE_MENU_ENABLED;
     }
@@ -396,10 +369,6 @@ public class CameraActivity extends Activity
 
     public void enableDeveloperMenu() {
         mDeveloperMenuEnabled = true;
-    }
-
-    public static void resetFirstStartAfterScreenOn() {
-        sFirstStartAfterScreenOn = false;
     }
 
     private String fileNameFromDataID(int dataID) {
@@ -1412,18 +1381,6 @@ public class CameraActivity extends Activity
             mSecureCamera = intent.getBooleanExtra(SECURE_CAMERA_EXTRA, false);
         }
 
-        // Filter for screen off so that we can finish secure camera activity
-        // when screen is off.
-        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-        registerReceiver(mScreenOffReceiver, filter);
-        // TODO: This static screen off event receiver is a workaround to the
-        // double onResume() invocation (onResume->onPause->onResume). We should
-        // find a better solution to this.
-        if (sScreenOffReceiver == null) {
-            sScreenOffReceiver = new ScreenOffReceiver();
-            registerReceiver(sScreenOffReceiver, filter);
-        }
-
         if (mSecureCamera) {
             // Change the window flags so that secure camera can show when locked
             Window win = getWindow();
@@ -1446,7 +1403,10 @@ public class CameraActivity extends Activity
 
         LayoutInflater inflater = getLayoutInflater();
         View rootLayout = inflater.inflate(R.layout.camera, null, false);
-        mCameraModuleRootView = rootLayout.findViewById(R.id.camera_app_root);
+        mCameraRootFrame = (FrameLayout)rootLayout.findViewById(R.id.camera_root_frame);
+        mCameraPhotoModuleRootView = rootLayout.findViewById(R.id.camera_photo_root);
+        mCameraVideoModuleRootView = rootLayout.findViewById(R.id.camera_video_root);
+        mCameraPanoModuleRootView = rootLayout.findViewById(R.id.camera_pano_root);
 
         int moduleIndex = -1;
         if (MediaStore.INTENT_ACTION_VIDEO_CAMERA.equals(getIntent().getAction())
@@ -1477,7 +1437,6 @@ public class CameraActivity extends Activity
 
         mOrientationListener = new MyOrientationEventListener(this);
         setModuleFromIndex(moduleIndex);
-        mCurrentModule.init(this, mCameraModuleRootView);
 
         setContentView(R.layout.camera_filmstrip);
 
@@ -1717,9 +1676,6 @@ public class CameraActivity extends Activity
             mWakeLock.release();
             Log.d(TAG, "wake lock release");
         }
-        if (mScreenOffReceiver != null) {
-            unregisterReceiver(mScreenOffReceiver);
-        }
 
         getContentResolver().unregisterContentObserver(mLocalImagesObserver);
         getContentResolver().unregisterContentObserver(mLocalVideosObserver);
@@ -1870,32 +1826,53 @@ public class CameraActivity extends Activity
      * index an sets it as mCurrentModule.
      */
     private void setModuleFromIndex(int moduleIndex) {
+        mCameraPhotoModuleRootView.setVisibility(View.GONE);
+        mCameraVideoModuleRootView.setVisibility(View.GONE);
+        mCameraPanoModuleRootView.setVisibility(View.GONE);
+        mCameraRootFrame.removeAllViews();
         mCurrentModuleIndex = moduleIndex;
         switch (moduleIndex) {
             case ModuleSwitcher.VIDEO_MODULE_INDEX:
-                mCurrentModule = new VideoModule();
+                if(mVideoModule == null) {
+                    mVideoModule = new VideoModule();
+                    mVideoModule.init(this, mCameraVideoModuleRootView);
+                }
+                mCurrentModule = mVideoModule;
+                mCameraRootFrame.addView(mCameraVideoModuleRootView);
+                mCameraVideoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
             case ModuleSwitcher.PHOTO_MODULE_INDEX:
-                mCurrentModule = new PhotoModule();
+                if(mPhotoModule == null) {
+                    mPhotoModule = new PhotoModule();
+                    mPhotoModule.init(this, mCameraPhotoModuleRootView);
+                }
+                mCurrentModule = mPhotoModule;
+                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
+                mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
             case ModuleSwitcher.WIDE_ANGLE_PANO_MODULE_INDEX:
-                mCurrentModule = new WideAnglePanoramaModule();
+                if(mPanoModule == null) {
+                    mPanoModule = new WideAnglePanoramaModule();
+                    mPanoModule.init(this, mCameraPanoModuleRootView);
+                }
+                mCurrentModule = mPanoModule;
+                mCameraRootFrame.addView(mCameraPanoModuleRootView);
+                mCameraPanoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
-            case ModuleSwitcher.LIGHTCYCLE_MODULE_INDEX:
-                mCurrentModule = PhotoSphereHelper.createPanoramaModule();
-                break;
-            case ModuleSwitcher.GCAM_MODULE_INDEX:
-                // Force immediate release of Camera instance
-                CameraHolder.instance().strongRelease();
-                mCurrentModule = GcamHelper.createGcamModule();
-                break;
+            case ModuleSwitcher.LIGHTCYCLE_MODULE_INDEX: //Unused module for now
+            case ModuleSwitcher.GCAM_MODULE_INDEX:  //Unused module for now
             default:
                 // Fall back to photo mode.
-                mCurrentModule = new PhotoModule();
-                mCurrentModuleIndex = ModuleSwitcher.PHOTO_MODULE_INDEX;
+                if(mPhotoModule == null) {
+                    mPhotoModule = new PhotoModule();
+                    mPhotoModule.init(this, mCameraPhotoModuleRootView);
+                }
+                mCurrentModule = mPhotoModule;
+                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
+                mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
                 break;
         }
     }
@@ -1935,7 +1912,6 @@ public class CameraActivity extends Activity
     }
 
     private void openModule(CameraModule module) {
-        module.init(this, mCameraModuleRootView);
         module.onResumeBeforeSuper();
         module.onResumeAfterSuper();
     }
@@ -1943,8 +1919,6 @@ public class CameraActivity extends Activity
     private void closeModule(CameraModule module) {
         module.onPauseBeforeSuper();
         module.onPauseAfterSuper();
-        ((ViewGroup) mCameraModuleRootView).removeAllViews();
-        ((ViewGroup) mCameraModuleRootView).clearDisappearingChildren();
     }
 
     private void performDeletion() {

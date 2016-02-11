@@ -240,8 +240,10 @@ public class PhotoModule
     // Used for check memory status for longshot mode
     // Currently, this cancel threshold selection is based on test experiments,
     // we can change it based on memory status or other requirements.
-    private static final int LONGSHOT_CANCEL_THRESHOLD = 40 * 1024 * 1024;
-    private long SECONDARY_SERVER_MEM;
+    private static final int CHECKING_INTERVAL = 10;
+    private static final int LONGSHOT_CANCEL_THRESHOLD = CHECKING_INTERVAL * 40 * 1024 * 1024;
+    private int mRemainedMemCheckingCount;
+    private long mSecondaryServerMem;
     private boolean mLongshotActive = false;
 
     // We use a queue to generated names of the images to be used later
@@ -379,12 +381,53 @@ public class PhotoModule
     }
     private SelfieThread selfieThread;
 
+    private class MediaSaveNotifyThread extends Thread
+    {
+        private Uri uri;
+        public MediaSaveNotifyThread(Uri uri)
+        {
+            this.uri = uri;
+        }
+        public void setUri(Uri uri)
+        {
+            this.uri = uri;
+        }
+        public void run()
+        {
+            while(mLongshotActive) {
+                try {
+                    Thread.sleep(10);
+                } catch(InterruptedException e) {
+                }
+            }
+            mActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    if (uri != null)
+                        mActivity.notifyNewMedia(uri);
+                    mActivity.updateStorageSpaceAndHint();
+                    updateRemainingPhotos();
+                }
+            });
+            mediaSaveNotifyThread = null;
+        }
+    }
+
+    private MediaSaveNotifyThread mediaSaveNotifyThread;
     private MediaSaveService.OnMediaSavedListener mOnMediaSavedListener =
             new MediaSaveService.OnMediaSavedListener() {
                 @Override
                 public void onMediaSaved(Uri uri) {
-                    if (uri != null) {
-                        mActivity.notifyNewMedia(uri);
+                    if(mLongshotActive) {
+                        if(mediaSaveNotifyThread == null) {
+                            mediaSaveNotifyThread = new MediaSaveNotifyThread(uri);
+                            mediaSaveNotifyThread.start();
+                        }
+                        else
+                            mediaSaveNotifyThread.setUri(uri);
+                    } else {
+                        if (uri != null) {
+                            mActivity.notifyNewMedia(uri);
+                        }
                     }
                 }
             };
@@ -938,16 +981,21 @@ public class PhotoModule
 
     // TODO: need to check cached background apps memory and longshot ION memory
     private boolean isLongshotNeedCancel() {
-        if (Storage.getAvailableSpace() <= Storage.LOW_STORAGE_THRESHOLD_BYTES) {
+        if(mRemainedMemCheckingCount < CHECKING_INTERVAL) {
+            mRemainedMemCheckingCount++;
+            return false;
+        }
+        mRemainedMemCheckingCount = 0;
+        if (Storage.getAvailableSpace() <= Storage.LOW_STORAGE_THRESHOLD_BYTES * CHECKING_INTERVAL) {
             Log.w(TAG, "current storage is full");
             return true;
         }
-        if (SECONDARY_SERVER_MEM == 0) {
+        if (mSecondaryServerMem == 0) {
             ActivityManager am = (ActivityManager) mActivity.getSystemService(
                     Context.ACTIVITY_SERVICE);
             ActivityManager.MemoryInfo memInfo = new ActivityManager.MemoryInfo();
             am.getMemoryInfo(memInfo);
-            SECONDARY_SERVER_MEM = memInfo.secondaryServerThreshold;
+            mSecondaryServerMem = memInfo.secondaryServerThreshold;
         }
 
         long totalMemory = Runtime.getRuntime().totalMemory();
@@ -959,10 +1007,10 @@ public class PhotoModule
         long[] info = reader.getRawInfo();
         long availMem = (info[Debug.MEMINFO_FREE] + info[Debug.MEMINFO_CACHED]) * 1024;
 
-        if (availMem <= SECONDARY_SERVER_MEM || remainMemory <= LONGSHOT_CANCEL_THRESHOLD) {
+        if (availMem <= mSecondaryServerMem || remainMemory <= LONGSHOT_CANCEL_THRESHOLD) {
             Log.e(TAG, "cancel longshot: free=" + info[Debug.MEMINFO_FREE] * 1024
                     + " cached=" + info[Debug.MEMINFO_CACHED] * 1024
-                    + " threshold=" + SECONDARY_SERVER_MEM);
+                    + " threshold=" + mSecondaryServerMem);
             mLongshotActive = false;
             RotateTextToast.makeText(mActivity,R.string.msg_cancel_longshot_for_limited_memory,
                 Toast.LENGTH_SHORT).show();
@@ -1367,11 +1415,8 @@ public class PhotoModule
                             onCaptureDone();
                         }
                     }
-                    // Check this in advance of each shot so we don't add to shutter
-                    // latency. It's true that someone else could write to the SD card in
-                    // the mean time and fill it, but that could have happened between the
-                    // shutter press and saving the JPEG too.
-                    mActivity.updateStorageSpaceAndHint();
+                    if(!mLongshotActive)
+                        mActivity.updateStorageSpaceAndHint();
                     mUI.updateRemainingPhotos(--mRemainingPhotos);
                     long now = System.currentTimeMillis();
                     mJpegCallbackFinishTime = now - mJpegPictureCallbackTime;
@@ -1579,6 +1624,8 @@ public class PhotoModule
         mPreviewRestartSupport &= CameraSettings.isInternalPreviewSupported(
                 mParameters);
         mPreviewRestartSupport &= (mBurstSnapNum == 1);
+        // Restart is needed  if HDR is enabled
+        mPreviewRestartSupport &= !CameraUtil.SCENE_MODE_HDR.equals(mSceneMode);
         mPreviewRestartSupport &= PIXEL_FORMAT_JPEG.equalsIgnoreCase(
                 pictureFormat);
 
@@ -2130,9 +2177,11 @@ public class PhotoModule
 
     @Override
     public synchronized void onShutterButtonClick() {
-        if (mPaused || mUI.collapseCameraControls()
+        if ((mCameraDevice == null)
+                || mPaused || mUI.collapseCameraControls()
                 || (mCameraState == SWITCHING_CAMERA)
                 || (mCameraState == PREVIEW_STOPPED)
+                || (mCameraState == LONGSHOT)
                 || (null == mFocusManager)) return;
 
         // Do not take the picture if there is not enough storage.
@@ -2235,6 +2284,7 @@ public class PhotoModule
                     mUI.cancelCountDown();
                 }
                 //check whether current memory is enough for longshot.
+                mRemainedMemCheckingCount = 0;
                 if(isLongshotNeedCancel()) {
                     return;
                 }
@@ -2258,6 +2308,11 @@ public class PhotoModule
     @Override
     public void onResumeBeforeSuper() {
         mPaused = false;
+        mPreferences = new ComboPreferences(mActivity);
+        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), mActivity);
+        mCameraId = getPreferredCameraId(mPreferences);
+        mPreferences.setLocalId(mActivity, mCameraId);
+        CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
     }
 
     private void openCamera() {
@@ -2306,6 +2361,7 @@ public class PhotoModule
             onResumeTasks();
         }
 
+        mUI.setSwitcherIndex();
         if (mSoundPool == null) {
             mSoundPool = new SoundPool(1, AudioManager.STREAM_NOTIFICATION, 0);
             mRefocusSound = mSoundPool.load(mActivity, R.raw.camera_click_x5, 1);
@@ -2678,7 +2734,7 @@ public class PhotoModule
             mCameraDevice.setFaceDetectionCallback(null, null);
             mCameraDevice.setErrorCallback(null);
 
-            if (mActivity.isSecureCamera() && !CameraActivity.isFirstStartAfterScreenOn()) {
+            if (mActivity.isSecureCamera()) {
                 // Blocks until camera is actually released.
                 CameraHolder.instance().strongRelease();
             } else {
@@ -3004,6 +3060,7 @@ public class PhotoModule
         if (CameraUtil.isSupported(colorEffect, mParameters.getSupportedColorEffects())) {
             mParameters.setColorEffect(colorEffect);
         }
+
         //Set Saturation
         String saturationStr = mPreferences.getString(
                 CameraSettings.KEY_SATURATION,
@@ -3404,6 +3461,11 @@ public class PhotoModule
         if (!aeBracket.equalsIgnoreCase("off")) {
             String fMode = Parameters.FLASH_MODE_OFF;
             mParameters.setFlashMode(fMode);
+        }
+
+        if(!mFocusManager.getFocusMode().equals(Parameters.FOCUS_MODE_CONTINUOUS_PICTURE) &&
+            !mFocusManager.isFocusCompleted()) {
+            mUI.clearFocus();
         }
     }
 

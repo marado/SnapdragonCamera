@@ -84,6 +84,7 @@ public class CameraSettings {
     public static final String KEY_PICTURE_FORMAT = "pref_camera_pictureformat_key";
     public static final String KEY_ZSL = "pref_camera_zsl_key";
     public static final String KEY_CAMERA_SAVEPATH = "pref_camera_savepath_key";
+    public static final String KEY_FILTER_MODE = "pref_camera_filter_mode_key";
     public static final String KEY_COLOR_EFFECT = "pref_camera_coloreffect_key";
     public static final String KEY_FACE_DETECTION = "pref_camera_facedetection_key";
     public static final String KEY_TOUCH_AF_AEC = "pref_camera_touchafaec_key";
@@ -244,6 +245,8 @@ public class CameraSettings {
     public static final String KEY_TS_MAKEUP_LEVEL_CLEAN   = "pref_camera_tsmakeup_clean";
 
     public static final String KEY_REFOCUS_PROMPT = "refocus-prompt";
+
+    public static final String KEY_SHOW_MENU_HELP = "help_menu";
 
     public static final String KEY_SELFIE_FLASH = "pref_selfie_flash_key";
 

@@ -408,12 +408,12 @@ public class VideoModule implements CameraModule,
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (action.equals(Intent.ACTION_MEDIA_EJECT)) {
+            if (action.equals(Intent.ACTION_MEDIA_EJECT) ||
+                    action.equals(Intent.ACTION_SCREEN_OFF)) {
                 stopVideoRecording();
-            } else if (action.equals(Intent.ACTION_MEDIA_SCANNER_STARTED)) {
                 RotateTextToast.makeText(mActivity,
-                        mActivity.getResources().getString(R.string.wait), Toast.LENGTH_LONG)
-                        .show();
+                        mActivity.getResources().getString(R.string.video_recording_stopped),
+                                Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -1038,9 +1038,12 @@ public class VideoModule implements CameraModule,
 
     @Override
     public void installIntentFilter() {
+        if(mReceiver != null)
+            return;
         // install an intent filter to receive SD card related events.
         IntentFilter intentFilter =
                 new IntentFilter(Intent.ACTION_MEDIA_EJECT);
+        intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_MEDIA_SCANNER_STARTED);
         intentFilter.addDataScheme("file");
         mReceiver = new MyBroadcastReceiver();
@@ -1050,6 +1053,11 @@ public class VideoModule implements CameraModule,
     @Override
     public void onResumeBeforeSuper() {
         mPaused = false;
+        mPreferences = new ComboPreferences(mActivity);
+        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), mActivity);
+        mCameraId = getPreferredCameraId(mPreferences);
+        mPreferences.setLocalId(mActivity, mCameraId);
+        CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
     }
 
     @Override
@@ -1062,8 +1070,9 @@ public class VideoModule implements CameraModule,
         if(mWasMute != mIsMute) {
             setMute(mIsMute, false);
         }
-
+        initializeVideoControl();
         showVideoSnapshotUI(false);
+        installIntentFilter();
 
         if (!mPreviewing) {
             openCamera();
@@ -1082,6 +1091,7 @@ public class VideoModule implements CameraModule,
         // Initializing it here after the preview is started.
         mUI.initializeZoom(mParameters);
         mUI.setPreviewGesturesVideoUI();
+        mUI.setSwitcherIndex();
         keepScreenOnAwhile();
 
         mOrientationManager.resume();
@@ -1782,7 +1792,7 @@ public class VideoModule implements CameraModule,
         try {
             mMediaRecorder.start(); // Recording is now started
         } catch (RuntimeException e) {
-            Log.e(TAG, "Could not start media recorder. ", e);
+            Toast.makeText(mActivity,"Could not start media recorder.\n Can't start video recording.", Toast.LENGTH_LONG).show();
             releaseMediaRecorder();
             // If start fails, frameworks will not lock the camera for us.
             mCameraDevice.lock();

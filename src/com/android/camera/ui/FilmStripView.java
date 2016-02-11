@@ -553,8 +553,12 @@ public class FilmStripView extends ViewGroup implements BottomControlsListener {
         }
 
         private void layoutAt(int left, int top) {
-            mView.layout(left, top, left + mView.getMeasuredWidth(),
-                    top + mView.getMeasuredHeight());
+            try {
+                mView.layout(left, top, left + mView.getMeasuredWidth(),
+                        top + mView.getMeasuredHeight());
+            } catch (NullPointerException e) {
+                Log.e(TAG, "One of the view children is removed");
+            }
         }
 
         /**
@@ -1819,7 +1823,6 @@ public class FilmStripView extends ViewGroup implements BottomControlsListener {
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        mGestureRecognizer.onTouchEvent(ev);
         return true;
     }
 
