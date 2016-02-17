@@ -110,7 +110,6 @@ import com.android.camera.util.IntentHelper;
 import com.android.camera.util.PhotoSphereHelper;
 import com.android.camera.util.PhotoSphereHelper.PanoramaViewHelper;
 import com.android.camera.util.UsageStatistics;
-import com.android.internal.view.RotationPolicy;
 import org.codeaurora.snapcam.R;
 
 import java.io.File;
@@ -203,8 +202,6 @@ public class CameraActivity extends Activity
     private OnScreenHint mStorageHint;
     private long mStorageSpaceBytes = Storage.LOW_STORAGE_THRESHOLD_BYTES;
     private boolean mSecureCamera;
-    // This is a hack to speed up the start of SecureCamera.
-    private static boolean sFirstStartAfterScreenOn = true;
     private int mLastRawOrientation;
     private MyOrientationEventListener mOrientationListener;
     private Handler mMainHandler;
@@ -339,33 +336,6 @@ public class CameraActivity extends Activity
         registerReceiver(mSDcardMountedReceiver, filter);
     }
 
-    // close activity when screen turns off
-    private BroadcastReceiver mScreenOffReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-
-            if (action.equals(Intent.ACTION_SCREEN_OFF)) {
-                if (mSecureCamera) {
-                    finish();
-                } else {
-                    mCurrentModule.onPauseBeforeSuper();
-                    mCurrentModule.onPauseAfterSuper();
-                }
-            }
-
-        }
-    };
-
-    private static BroadcastReceiver sScreenOffReceiver;
-
-    private static class ScreenOffReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            sFirstStartAfterScreenOn = true;
-        }
-    }
-
     private class MainHandler extends Handler {
         public MainHandler(Looper looper) {
             super(looper);
@@ -388,10 +358,6 @@ public class CameraActivity extends Activity
         mOnActionBarVisibilityListener = listener;
     }
 
-    public static boolean isFirstStartAfterScreenOn() {
-        return sFirstStartAfterScreenOn;
-    }
-
     public static boolean isPieMenuEnabled() {
         return PIE_MENU_ENABLED;
     }
@@ -402,10 +368,6 @@ public class CameraActivity extends Activity
 
     public void enableDeveloperMenu() {
         mDeveloperMenuEnabled = true;
-    }
-
-    public static void resetFirstStartAfterScreenOn() {
-        sFirstStartAfterScreenOn = false;
     }
 
     private String fileNameFromDataID(int dataID) {
@@ -1418,18 +1380,6 @@ public class CameraActivity extends Activity
             mSecureCamera = intent.getBooleanExtra(SECURE_CAMERA_EXTRA, false);
         }
 
-        // Filter for screen off so that we can finish secure camera activity
-        // when screen is off.
-        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-        registerReceiver(mScreenOffReceiver, filter);
-        // TODO: This static screen off event receiver is a workaround to the
-        // double onResume() invocation (onResume->onPause->onResume). We should
-        // find a better solution to this.
-        if (sScreenOffReceiver == null) {
-            sScreenOffReceiver = new ScreenOffReceiver();
-            registerReceiver(sScreenOffReceiver, filter);
-        }
-
         if (mSecureCamera) {
             // Change the window flags so that secure camera can show when locked
             Window win = getWindow();
@@ -1725,9 +1675,6 @@ public class CameraActivity extends Activity
             mWakeLock.release();
             Log.d(TAG, "wake lock release");
         }
-        if (mScreenOffReceiver != null) {
-            unregisterReceiver(mScreenOffReceiver);
-        }
 
         getContentResolver().unregisterContentObserver(mLocalImagesObserver);
         getContentResolver().unregisterContentObserver(mLocalVideosObserver);
@@ -1747,12 +1694,6 @@ public class CameraActivity extends Activity
         if (mFilmStripView.inCameraFullscreen()) {
             if (mCurrentModule.onKeyDown(keyCode, event)) {
                 return true;
-            }
-            // add for stop rotate for exit camera
-            if(keyCode == KeyEvent.KEYCODE_BACK &&
-                    RotationPolicy.isRotationSupported(this)) {
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-                RotationPolicy.setRotationLock(this,true);
             }
             // Prevent software keyboard or voice search from showing up.
             if (keyCode == KeyEvent.KEYCODE_SEARCH
