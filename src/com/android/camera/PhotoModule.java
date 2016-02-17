@@ -206,10 +206,11 @@ public class PhotoModule
 
     private boolean mFaceDetectionStarted = false;
 
-    private static final String PERSIST_LONG_ENABLE = "persist.camera.longshot.enable";
     private static final String PERSIST_LONG_SAVE = "persist.camera.longshot.save";
     private static final String PERSIST_PREVIEW_RESTART = "persist.camera.feature.restart";
     private static final String PERSIST_CAPTURE_ANIMATION = "persist.camera.capture.animate";
+    private static final boolean PERSIST_SKIP_MEM_CHECK =
+            android.os.SystemProperties.getBoolean("persist.camera.perf.skip_memck", false);
 
     private static final int MINIMUM_BRIGHTNESS = 0;
     private static final int MAXIMUM_BRIGHTNESS = 6;
@@ -912,6 +913,10 @@ public class PhotoModule
 
     // TODO: need to check cached background apps memory and longshot ION memory
     private boolean isLongshotNeedCancel() {
+        if (PERSIST_SKIP_MEM_CHECK == true) {
+            return false;
+        }
+
         if (SECONDARY_SERVER_MEM == 0) {
             ActivityManager am = (ActivityManager) mActivity.getSystemService(
                     Context.ACTIVITY_SERVICE);
