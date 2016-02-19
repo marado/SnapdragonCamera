@@ -964,12 +964,12 @@ public class CameraSettings {
         editor.apply();
     }
 
-    public static void upgradeGlobalPreferences(SharedPreferences pref) {
-        upgradeOldVersion(pref);
+    public static void upgradeGlobalPreferences(SharedPreferences pref, Context context) {
+        upgradeOldVersion(pref, context);
         upgradeCameraId(pref);
     }
 
-    private static void upgradeOldVersion(SharedPreferences pref) {
+    private static void upgradeOldVersion(SharedPreferences pref,  Context context) {
         int version;
         try {
             version = pref.getInt(KEY_VERSION, 0);
@@ -1079,7 +1079,7 @@ public class CameraSettings {
         // we may write the preference to wrong camera later.
         preferences.setLocalId(context, currentCameraId);
 
-        upgradeGlobalPreferences(preferences.getGlobal());
+        upgradeGlobalPreferences(preferences.getGlobal(), context);
         upgradeLocalPreferences(preferences.getLocal());
 
         // Write back the current camera id because parameters are related to

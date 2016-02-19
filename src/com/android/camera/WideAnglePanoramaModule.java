@@ -203,6 +203,17 @@ public class WideAnglePanoramaModule
         }
     }
 
+    private int getPreferredCameraId(ComboPreferences preferences) {
+        int intentCameraId = CameraUtil.getCameraFacingIntentExtras(mActivity);
+        if (intentCameraId != -1) {
+            // Testing purpose. Launch a specific camera through the intent
+            // extras.
+            return intentCameraId;
+        } else {
+            return CameraSettings.readPreferredCameraId(preferences);
+        }
+    }
+
     @Override
     public void init(CameraActivity activity, View parent) {
         mActivity = activity;
@@ -266,7 +277,8 @@ public class WideAnglePanoramaModule
         mDialogWaitingPreviousString = appRes.getString(R.string.pano_dialog_waiting_previous);
 
         mPreferences = new ComboPreferences(mActivity);
-        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal());
+        mPreferences.setLocalId(mActivity, getPreferredCameraId(mPreferences));
+        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), activity);
         mLocationManager = new LocationManager(mActivity, null);
 
         mMainHandler = new Handler() {
@@ -904,6 +916,10 @@ public class WideAnglePanoramaModule
     @Override
     public void onResumeBeforeSuper() {
         mPaused = false;
+        mPreferences = new ComboPreferences(mActivity);
+        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), mActivity);
+        mPreferences.setLocalId(mActivity, getPreferredCameraId(mPreferences));
+        CameraSettings.upgradeLocalPreferences(mPreferences.getLocal());
     }
 
     @Override
@@ -943,6 +959,7 @@ public class WideAnglePanoramaModule
                 }
             });
         }
+        mUI.setSwitcherIndex();
         keepScreenOnAwhile();
 
         mOrientationManager.resume();

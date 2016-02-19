@@ -399,6 +399,10 @@ public class VideoUI implements PieRenderer.PieListener,
         mSwitcher.setVisibility(View.VISIBLE);
     }
 
+    public void setSwitcherIndex() {
+        mSwitcher.setCurrentIndex(ModuleSwitcher.VIDEO_MODULE_INDEX);
+    }
+
     public boolean collapseCameraControls() {
         boolean ret = false;
         if (mPopup != null) {
