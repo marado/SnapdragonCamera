@@ -1827,7 +1827,6 @@ public class CameraActivity extends Activity
         mCameraPhotoModuleRootView.setVisibility(View.GONE);
         mCameraVideoModuleRootView.setVisibility(View.GONE);
         mCameraPanoModuleRootView.setVisibility(View.GONE);
-        mCameraRootFrame.removeAllViews();
         mCurrentModuleIndex = moduleIndex;
         switch (moduleIndex) {
             case ModuleSwitcher.VIDEO_MODULE_INDEX:
@@ -1838,7 +1837,6 @@ public class CameraActivity extends Activity
                     mVideoModule.reinit();
                 }
                 mCurrentModule = mVideoModule;
-                mCameraRootFrame.addView(mCameraVideoModuleRootView);
                 mCameraVideoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
@@ -1850,7 +1848,6 @@ public class CameraActivity extends Activity
                     mPhotoModule.reinit();
                 }
                 mCurrentModule = mPhotoModule;
-                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
                 mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
@@ -1860,7 +1857,6 @@ public class CameraActivity extends Activity
                     mPanoModule.init(this, mCameraPanoModuleRootView);
                 }
                 mCurrentModule = mPanoModule;
-                mCameraRootFrame.addView(mCameraPanoModuleRootView);
                 mCameraPanoModuleRootView.setVisibility(View.VISIBLE);
                 break;
 
@@ -1875,7 +1871,6 @@ public class CameraActivity extends Activity
                     mPhotoModule.reinit();
                 }
                 mCurrentModule = mPhotoModule;
-                mCameraRootFrame.addView(mCameraPhotoModuleRootView);
                 mCameraPhotoModuleRootView.setVisibility(View.VISIBLE);
                 break;
         }
