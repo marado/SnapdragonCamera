@@ -454,6 +454,9 @@
     <!-- Toast after SeeMore has been enabled to show TNR is disabled -->
     <string name="disable_TNR_during_SeeMore">SeeMore will disable TNR.</string>
 
+    <!-- Toast after SeeMore has been enabled to show NR is disabled -->
+    <string name="disable_NR_during_SeeMore">SeeMore will disable Noise Reduction.</string>
+
     <!-- Exposure settings in preference -->
     <string name="pref_exposure_title">Exposure</string>
     <string name="pref_exposure_default" translatable="false">0</string>
@@ -736,4 +739,5 @@ CHAR LIMIT = NONE] -->
     <string name="pref_camera_video_rotation_label_270">270</string>
 
     <string name="remaining_photos_format">%d left</string>
+    <string name="initial_recording_seconds">00:00</string>
  </resources>
