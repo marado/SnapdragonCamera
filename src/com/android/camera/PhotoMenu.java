@@ -49,6 +49,7 @@ import android.widget.FrameLayout.LayoutParams;
 
 import com.android.camera.CameraPreference.OnPreferenceChangedListener;
 import com.android.camera.TsMakeupManager.MakeupLevelListener;
+import com.android.camera.app.CameraApp;
 import com.android.camera.ui.CameraControls;
 import com.android.camera.ui.CountdownTimerPopup;
 import com.android.camera.ui.ListSubMenu;
@@ -226,6 +227,7 @@ public class PhotoMenu extends MenuController
                 CameraSettings.KEY_DENOISE,
                 CameraSettings.KEY_ADVANCED_FEATURES,
                 CameraSettings.KEY_AE_BRACKET_HDR,
+                CameraSettings.KEY_INSTANT_CAPTURE,
                 CameraSettings.KEY_MANUAL_EXPOSURE,
                 CameraSettings.KEY_MANUAL_WB,
                 CameraSettings.KEY_MANUAL_FOCUS
@@ -1016,7 +1018,6 @@ public class PhotoMenu extends MenuController
         final View[] views = new View[entries.length];
         int init = pref.getCurrentIndex();
         for (int i = 0; i < entries.length; i++) {
-
             RotateLayout layout2 = (RotateLayout) inflater.inflate(
                     R.layout.scene_mode_view, null, false);
 
@@ -1060,13 +1061,16 @@ public class PhotoMenu extends MenuController
             // ASD only available when developer options are enabled.
             if(entryValues[i].equals("asd")) {
                 layout2.setVisibility(mActivity.isDeveloperMenuEnabled()?View.VISIBLE:View.GONE);
-            }
-
-            if(entryValues[i].equals("hdr")) {
+            } else if(entryValues[i].equals("hdr")) {
                 ListPreference autoHdrPref = mPreferenceGroup.findPreference(CameraSettings.KEY_AUTO_HDR);
                 if (autoHdrPref != null && autoHdrPref.getValue().equalsIgnoreCase("enable")) {
                     layout2.setVisibility(View.GONE);
                 }
+            } else if(CameraApp.mIsLowMemoryDevice &&
+                    (entryValues[i].equals(mActivity.getResources().getString(R.string.pref_camera_advanced_feature_value_refocus_on))
+                            ||
+                     entryValues[i].equals(mActivity.getResources().getString(R.string.pref_camera_advanced_feature_value_optizoom_on)))) {
+                    layout2.setVisibility(View.GONE);
             }
         }
         previewMenuLayout.addView(basic);
