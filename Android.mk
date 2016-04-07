@@ -39,6 +39,6 @@ else
   LOCAL_REQUIRED_MODULES := libjni_snapcammosaic libjni_snapcamtinyplanet
 endif
 
-include $(BUILD_PACKAGE)
+#include $(BUILD_PACKAGE)
 
-include $(call all-makefiles-under, $(LOCAL_PATH))
+#include $(call all-makefiles-under, $(LOCAL_PATH))
