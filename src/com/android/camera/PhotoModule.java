@@ -696,6 +696,7 @@ public class PhotoModule
     private void switchCamera() {
         if (mPaused) return;
 
+        mUI.applySurfaceChange(PhotoUI.SURFACE_STATUS.HIDE);
         Log.v(TAG, "Start to switch camera. id=" + mPendingSwitchCameraId);
         mCameraId = mPendingSwitchCameraId;
         mPendingSwitchCameraId = -1;
@@ -735,6 +736,7 @@ public class PhotoModule
         mFocusManager.setParameters(mInitialParams);
         setupPreview();
 
+        mUI.applySurfaceChange(PhotoUI.SURFACE_STATUS.SURFACE_VIEW);
         // reset zoom value index
         mZoomValue = 0;
         resizeForPreviewAspectRatio();
@@ -2364,6 +2366,7 @@ public class PhotoModule
     @Override
     public void onResumeAfterSuper() {
         mLastPhotoTakenWithRefocus = false;
+        mUI.showSurfaceView();
         // Add delay on resume from lock screen only, in order to to speed up
         // the onResume --> onPause --> onResume cycle from lock screen.
         // Don't do always because letting go of thread can cause delay.
@@ -2372,17 +2375,17 @@ public class PhotoModule
                 || MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE.equals(action)) {
             Log.v(TAG, "On resume, from lock screen.");
 
+            // Check if there is a need to take a snapshot without
+            // waiting for the shutter click
+            if (isInstantCaptureEnabled()) {
+                mInstantCaptureSnapShot = true;
+            }
+
             // Note: onPauseAfterSuper() will delete this runnable, so we will
             // at most have 1 copy queued up.
             mHandler.postDelayed(new Runnable() {
                 public void run() {
                     onResumeTasks();
-
-                    // Check if there is a need to take a snapshot without
-                    // waiting for the shutter click
-                    if (isInstantCaptureEnabled()) {
-                        mInstantCaptureSnapShot = true;
-                    }
                 }
             }, ON_RESUME_TASKS_DELAY_MSEC);
         } else {
@@ -2425,6 +2428,8 @@ public class PhotoModule
             mOpenCameraThread.start();
         }
 
+        mUI.applySurfaceChange(PhotoUI.SURFACE_STATUS.SURFACE_VIEW);
+
         mJpegPictureCallbackTime = 0;
         mZoomValue = 0;
 
@@ -2463,6 +2468,8 @@ public class PhotoModule
     @Override
     public void onPauseBeforeSuper() {
         mPaused = true;
+        mUI.applySurfaceChange(PhotoUI.SURFACE_STATUS.HIDE);
+
         Sensor gsensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if (gsensor != null) {
             mSensorManager.unregisterListener(this, gsensor);
@@ -2491,6 +2498,7 @@ public class PhotoModule
     public void onPauseAfterSuper() {
         Log.v(TAG, "On pause.");
         mUI.showPreviewCover();
+        mUI.hideSurfaceView();
 
         try {
             if (mOpenCameraThread != null) {
