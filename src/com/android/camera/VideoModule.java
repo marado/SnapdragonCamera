@@ -1671,10 +1671,20 @@ public class VideoModule implements CameraModule,
         // Send request to obtain audio focus. This will stop other
         // music stream.
         int result = am.requestAudioFocus(null, AudioManager.STREAM_MUSIC,
-                                 AudioManager.AUDIOFOCUS_GAIN);
+                                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
 
         if (result == AudioManager.AUDIOFOCUS_REQUEST_FAILED) {
             Log.v(TAG, "Audio focus request failed");
+        }
+    }
+
+    private void releaseAudioFocus() {
+        AudioManager am = (AudioManager)mActivity.getSystemService(Context.AUDIO_SERVICE);
+
+        int result = am.abandonAudioFocus(null);
+
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_FAILED) {
+            Log.v(TAG, "Audio focus release failed");
         }
     }
 
@@ -1750,6 +1760,7 @@ public class VideoModule implements CameraModule,
         } catch (RuntimeException e) {
             Log.e(TAG, "Could not start media recorder. ", e);
             releaseMediaRecorder();
+            releaseAudioFocus();
             // If start fails, frameworks will not lock the camera for us.
             mCameraDevice.lock();
             mStartRecPending = false;
@@ -1900,6 +1911,7 @@ public class VideoModule implements CameraModule,
         }
         // release media recorder
         releaseMediaRecorder();
+        releaseAudioFocus();
         if (!mPaused) {
             mCameraDevice.lock();
             if (!ApiHelper.HAS_SURFACE_TEXTURE_RECORDING) {
