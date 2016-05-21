@@ -117,10 +117,6 @@ public class CameraActivity extends Activity
     // panorama. If the extra is not set, it is in the normal camera mode.
     public static final String SECURE_CAMERA_EXTRA = "secure_camera";
 
-    private static final int PERMISSIONS_ACTIVITY_REQUEST_CODE = 1;
-    private static final int PERMISSIONS_RESULT_CODE_OK = 0;
-    private static final int PERMISSIONS_RESULT_CODE_FAILED = 1;
-
     /**
      * Request code from an activity we started that indicated that we do not
      * want to reset the view to the preview in onResume.
@@ -1041,8 +1037,7 @@ public class CameraActivity extends Activity
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
-        checkPermissions();
-        if (!mHasCriticalPermissions) {
+        if (checkPermissions() || !mHasCriticalPermissions) {
             Log.v(TAG, "onCreate: Missing critical permissions.");
             finish();
             return;
@@ -1214,7 +1209,9 @@ public class CameraActivity extends Activity
     @Override
     public void onUserInteraction() {
         super.onUserInteraction();
-        mCurrentModule.onUserInteraction();
+        if (mCurrentModule != null) {
+            mCurrentModule.onUserInteraction();
+        }
     }
 
     @Override
@@ -1253,22 +1250,19 @@ public class CameraActivity extends Activity
             mIsEditActivityInProgress = false;
         } else {
             super.onActivityResult(requestCode, resultCode, data);
-            // Close the app if critical permissions are missing.
-            if (requestCode == PERMISSIONS_ACTIVITY_REQUEST_CODE && resultCode == PERMISSIONS_RESULT_CODE_FAILED) {
-                finish();
-            }
         }
     }
 
     /**
      * Checks if any of the needed Android runtime permissions are missing.
      * If they are, then launch the permissions activity under one of the following conditions:
-     * a) The permissions dialogs have not run yet. We will ask for permission only once.
-     * b) If the missing permissions are critical to the app running, we will display a fatal error dialog.
+     * a) If critical permissions are missing, display permission request again
+     * b) If non-critical permissions are missing, just display permission request once.
      * Critical permissions are: camera, microphone and storage. The app cannot run without them.
      * Non-critical permission is location.
      */
-    private void checkPermissions() {
+    private boolean checkPermissions() {
+        boolean requestPermission = false;
 
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
@@ -1280,18 +1274,25 @@ public class CameraActivity extends Activity
 
         if ((checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
                 !mHasCriticalPermissions) {
-            Intent intent = new Intent(this, PermissionsActivity.class);
-            startActivity(intent);
-            finish();
-
+            final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            boolean isRequestShown = prefs.getBoolean(CameraSettings.KEY_REQUEST_PERMISSION, false);
+            if(!isRequestShown || !mHasCriticalPermissions) {
+                Log.v(TAG, "Request permission");
+                Intent intent = new Intent(this, PermissionsActivity.class);
+                startActivity(intent);
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putBoolean(CameraSettings.KEY_REQUEST_PERMISSION, true);
+                editor.apply();
+                requestPermission = true;
+           }
         }
+        return requestPermission;
     }
 
 
     @Override
     public void onResume() {
-        checkPermissions();
-        if (!mHasCriticalPermissions) {
+        if (checkPermissions() || !mHasCriticalPermissions) {
             super.onResume();
             Log.v(TAG, "onResume: Missing critical permissions.");
             finish();
@@ -1367,9 +1368,10 @@ public class CameraActivity extends Activity
         if (mSecureCamera) {
             unregisterReceiver(mScreenOffReceiver);
         }
-        getContentResolver().unregisterContentObserver(mLocalImagesObserver);
-        getContentResolver().unregisterContentObserver(mLocalVideosObserver);
-
+        if (mLocalImagesObserver != null) {
+            getContentResolver().unregisterContentObserver(mLocalImagesObserver);
+            getContentResolver().unregisterContentObserver(mLocalVideosObserver);
+        }
         super.onDestroy();
     }
 
