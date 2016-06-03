@@ -2608,7 +2608,7 @@ public class PhotoModule
             mCameraDevice.setFaceDetectionCallback(null, null);
             mCameraDevice.setErrorCallback(null);
 
-            if (mActivity.isSecureCamera() && !CameraActivity.isFirstStartAfterScreenOn()) {
+            if (mActivity.isSecureCamera()) {
                 // Blocks until camera is actually released.
                 CameraHolder.instance().strongRelease();
             } else {
@@ -2704,8 +2704,7 @@ public class PhotoModule
 
     @Override
     public void stopPreview() {
-        boolean isPreviewing = mCameraDevice.getCamera().previewEnabled();
-        if (mCameraDevice != null && isPreviewing) {
+        if (mCameraDevice != null &&  mCameraDevice.getCamera().previewEnabled()) {
             if (mCameraState == LONGSHOT) {
                 mCameraDevice.setLongshot(false);
                 mLongshotActive = false;
