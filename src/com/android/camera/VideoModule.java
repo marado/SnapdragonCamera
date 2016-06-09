@@ -1106,8 +1106,7 @@ public class VideoModule implements CameraModule,
 
         mOrientationManager.resume();
         // Initialize location service.
-        boolean recordLocation = RecordLocationPreference.get(mPreferences,
-                mContentResolver);
+        boolean recordLocation = RecordLocationPreference.get(mPreferences);
         mLocationManager.recordLocation(recordLocation);
 
         if (mPreviewing) {
@@ -2685,8 +2684,7 @@ public class VideoModule implements CameraModule,
             // startPreview().
             if (mCameraDevice == null) return;
 
-            boolean recordLocation = RecordLocationPreference.get(
-                    mPreferences, mContentResolver);
+            boolean recordLocation = RecordLocationPreference.get(mPreferences);
             mLocationManager.recordLocation(recordLocation);
 
             readVideoPreferences();
