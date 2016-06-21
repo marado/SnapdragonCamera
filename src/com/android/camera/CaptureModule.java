@@ -581,7 +581,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
                         @Override
                         public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-                            Log.e(TAG, "cameracapturesession - onConfigureFailed");
+                            Log.e(TAG, "cameracapturesession - onConfigureFailed "+id);
                             new AlertDialog.Builder(mActivity)
                                     .setTitle("Camera Initialization Failed")
                                     .setMessage("Closing SnapdragonCamera")
@@ -1832,7 +1832,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private Surface getPreviewSurface(int id) {
         if (isBackCamera()) {
             if (getCameraMode() == DUAL_MODE && id == MONO_ID) {
-                return mUI.getSurfaceHolder2().getSurface();
+                return mUI.getMonoDummySurface();
             } else {
                 return mUI.getSurfaceHolder().getSurface();
             }

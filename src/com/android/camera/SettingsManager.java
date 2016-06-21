@@ -108,7 +108,11 @@ public class SettingsManager implements ListMenu.SettingsListener {
                 String cameraId = cameraIdList[i];
                 CameraCharacteristics characteristics
                         = manager.getCameraCharacteristics(cameraId);
-                Byte monoOnly = characteristics.get(CaptureModule.MetaDataMonoOnlyKey);
+                byte monoOnly = 0;
+                try {
+                    monoOnly = characteristics.get(CaptureModule.MetaDataMonoOnlyKey);
+                }catch(Exception e) {
+                }
                 if (monoOnly == 1) {
                     CaptureModule.MONO_ID = i;
                     mIsMonoCameraPresent = true;

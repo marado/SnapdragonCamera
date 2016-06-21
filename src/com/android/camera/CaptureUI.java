@@ -22,15 +22,23 @@ package com.android.camera;
 import android.animation.Animator;
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.ImageFormat;
 import android.graphics.Point;
 import android.graphics.drawable.AnimationDrawable;
 import android.hardware.Camera.Face;
+import android.media.ImageReader;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicYuvToRGB;
+import android.renderscript.Type;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.ViewGroup;
@@ -60,6 +68,7 @@ import org.codeaurora.snapcam.R;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class CaptureUI implements FocusOverlayManager.FocusUI,
         PreviewGestures.SingleTapListener,
@@ -104,9 +113,9 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     private View mPreviewCover;
     private CaptureModule mModule;
     private AutoFitSurfaceView mSurfaceView;
-    private AutoFitSurfaceView mSurfaceView2;
+    private AutoFitSurfaceView mSurfaceViewMono;
     private SurfaceHolder mSurfaceHolder;
-    private SurfaceHolder mSurfaceHolder2;
+    private SurfaceHolder mSurfaceHolderMono;
     private int mOrientation;
     private RotateLayout mMenuLayout;
     private RotateLayout mSubMenuLayout;
@@ -121,6 +130,24 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     private SettingsManager mSettingsManager;
 
     private ImageView mThumbnail;
+
+    private SurfaceHolder.Callback callbackMono = new SurfaceHolder.Callback() {
+        // SurfaceHolder callbacks
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        }
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            mSurfaceHolderMono = holder;
+            if(mMonoDummyOutputAllocation != null) {
+                mMonoDummyOutputAllocation.setSurface(mSurfaceHolderMono.getSurface());
+            }
+            previewUIReady();
+        }
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+        }
+    };
 
     private SurfaceHolder.Callback callback = new SurfaceHolder.Callback() {
 
@@ -153,6 +180,9 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     private CameraControls mCameraControls;
     private PieRenderer mPieRenderer;
     private ZoomRenderer mZoomRenderer;
+    private Allocation mMonoDummyAllocation;
+    private Allocation mMonoDummyOutputAllocation;
+    private boolean mIsMonoDummyAllocationEverUsed = false;
 
     private int mScreenRatio = CameraUtil.RATIO_UNKNOWN;
     private int mTopMargin = 0;
@@ -163,36 +193,15 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     private View mFilterModeSwitcher;
     private View mSceneModeSwitcher;
     private View mFrontBackSwitcher;
-
-    private SurfaceHolder.Callback callback2 = new SurfaceHolder.Callback() {
-
-        // SurfaceHolder callbacks
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-            Log.v(TAG, "surfaceChanged2");
-        }
-
-        @Override
-        public void surfaceCreated(SurfaceHolder holder) {
-            Log.v(TAG, "surfaceCreated2");
-            mSurfaceHolder2 = holder;
-            previewUIReady();
-        }
-
-        @Override
-        public void surfaceDestroyed(SurfaceHolder holder) {
-            Log.v(TAG, "surfaceDestroyed2");
-            mSurfaceHolder2 = null;
-            previewUIDestroyed();
-        }
-    };
+    private int mPreviewWidth;
+    private int mPreviewHeight;
 
     private void previewUIReady() {
         if((mSurfaceHolder != null && mSurfaceHolder.getSurface().isValid()) &&
-                (mSurfaceView2.getVisibility() != View.VISIBLE ||
-                (mSurfaceView2.getVisibility() == View.VISIBLE &&
-                    mSurfaceHolder2 != null &&
-                    mSurfaceHolder2.getSurface().isValid()))) {
+                (mSurfaceViewMono.getVisibility() != View.VISIBLE ||
+                (mSurfaceViewMono.getVisibility() == View.VISIBLE &&
+                    mSurfaceHolderMono != null &&
+                    mSurfaceHolderMono.getSurface().isValid()))) {
             mModule.onPreviewUIReady();
             mActivity.updateThumbnail(mThumbnail);
         }
@@ -213,12 +222,12 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         mPreviewCover = mRootView.findViewById(R.id.preview_cover);
         // display the view
         mSurfaceView = (AutoFitSurfaceView) mRootView.findViewById(R.id.mdp_preview_content);
-        mSurfaceView2 = (AutoFitSurfaceView) mRootView.findViewById(R.id.mdp_preview_content2);
-        mSurfaceView2.setZOrderMediaOverlay(true);
         mSurfaceHolder = mSurfaceView.getHolder();
         mSurfaceHolder.addCallback(callback);
-        mSurfaceHolder2 = mSurfaceView2.getHolder();
-        mSurfaceHolder2.addCallback(callback2);
+        mSurfaceViewMono = (AutoFitSurfaceView) mRootView.findViewById(R.id.mdp_preview_content_mono);
+        mSurfaceViewMono.setZOrderMediaOverlay(true);
+        mSurfaceHolderMono = mSurfaceViewMono.getHolder();
+        mSurfaceHolderMono.addCallback(callbackMono);
 
         mRenderOverlay = (RenderOverlay) mRootView.findViewById(R.id.render_overlay);
         mShutterButton = (ShutterButton) mRootView.findViewById(R.id.shutter_button);
@@ -297,6 +306,14 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         initializeSettingMenu();
         initSceneModeButton();
         initFilterModeButton();
+        if (mSurfaceViewMono != null) {
+            if (mSettingsManager != null && mSettingsManager.getValue(SettingsManager.KEY_MONO_PREVIEW) != null
+                    && mSettingsManager.getValue(SettingsManager.KEY_MONO_PREVIEW).equalsIgnoreCase("on")) {
+                mSurfaceViewMono.setVisibility(View.VISIBLE);
+            } else {
+                mSurfaceViewMono.setVisibility(View.GONE);
+            }
+        }
     }
 
     // called from onResume but only the first time
@@ -1152,8 +1169,59 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         return mSurfaceHolder;
     }
 
-    public SurfaceHolder getSurfaceHolder2() {
-        return mSurfaceHolder2;
+    private class MonoDummyListener implements Allocation.OnBufferAvailableListener {
+        ScriptIntrinsicYuvToRGB yuvToRgbIntrinsic;
+        public MonoDummyListener(ScriptIntrinsicYuvToRGB yuvToRgbIntrinsic) {
+            this.yuvToRgbIntrinsic = yuvToRgbIntrinsic;
+        }
+
+        @Override
+        public void onBufferAvailable(Allocation a) {
+            if(mMonoDummyAllocation != null) {
+                mMonoDummyAllocation.ioReceive();
+                mIsMonoDummyAllocationEverUsed = true;
+                if(mSurfaceViewMono.getVisibility() == View.VISIBLE) {
+                    try {
+                        yuvToRgbIntrinsic.forEach(mMonoDummyOutputAllocation);
+                        mMonoDummyOutputAllocation.ioSend();
+                    } catch(Exception e)
+                    {
+                        Log.e(TAG, e.toString());
+                    }
+                }
+            }
+        }
+    }
+
+    public Surface getMonoDummySurface() {
+        if (mMonoDummyAllocation == null) {
+            RenderScript rs = RenderScript.create(mActivity);
+            Type.Builder yuvTypeBuilder = new Type.Builder(rs, Element.YUV(rs));
+            yuvTypeBuilder.setX(mPreviewWidth);
+            yuvTypeBuilder.setY(mPreviewHeight);
+            yuvTypeBuilder.setYuvFormat(ImageFormat.YUV_420_888);
+            mMonoDummyAllocation = Allocation.createTyped(rs, yuvTypeBuilder.create(), Allocation.USAGE_IO_INPUT|Allocation.USAGE_SCRIPT);
+            ScriptIntrinsicYuvToRGB yuvToRgbIntrinsic = ScriptIntrinsicYuvToRGB.create(rs, Element.RGBA_8888(rs));
+            yuvToRgbIntrinsic.setInput(mMonoDummyAllocation);
+
+            if(mSettingsManager.getValue(SettingsManager.KEY_MONO_PREVIEW).equalsIgnoreCase("on")) {
+                Type.Builder rgbTypeBuilder = new Type.Builder(rs, Element.RGBA_8888(rs));
+                rgbTypeBuilder.setX(mPreviewWidth);
+                rgbTypeBuilder.setY(mPreviewHeight);
+                mMonoDummyOutputAllocation = Allocation.createTyped(rs, rgbTypeBuilder.create(), Allocation.USAGE_SCRIPT | Allocation.USAGE_IO_OUTPUT);
+                mMonoDummyOutputAllocation.setSurface(mSurfaceHolderMono.getSurface());
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        mSurfaceHolderMono.setFixedSize(mPreviewWidth, mPreviewHeight);
+                        mSurfaceViewMono.setVisibility(View.VISIBLE);
+                    }
+                });
+            }
+            mMonoDummyAllocation.setOnBufferAvailableListener(new MonoDummyListener(yuvToRgbIntrinsic));
+
+            mIsMonoDummyAllocationEverUsed = false;
+        }
+        return mMonoDummyAllocation.getSurface();
     }
 
     public void showPreviewCover() {
@@ -1195,6 +1263,15 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     public void onPause() {
         cancelCountDown();
         collapseCameraControls();
+        if (mMonoDummyAllocation != null && mIsMonoDummyAllocationEverUsed) {
+            mMonoDummyAllocation.setOnBufferAvailableListener(null);
+            mMonoDummyAllocation.destroy();
+            mMonoDummyAllocation = null;
+        }
+        if (mMonoDummyOutputAllocation != null && mIsMonoDummyAllocationEverUsed) {
+            mMonoDummyOutputAllocation.destroy();
+            mMonoDummyOutputAllocation = null;
+        }
     }
 
     public boolean collapseCameraControls() {
@@ -1268,12 +1345,6 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     public Point getSurfaceViewSize() {
         Point point = new Point();
         if (mSurfaceView != null) point.set(mSurfaceView.getWidth(), mSurfaceView.getHeight());
-        return point;
-    }
-
-    public Point getSurfaceView2Size() {
-        Point point = new Point();
-        if (mSurfaceView2 != null) point.set(mSurfaceView2.getWidth(), mSurfaceView2.getHeight());
         return point;
     }
 
@@ -1379,23 +1450,15 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
 
     public void hideSurfaceView() {
         mSurfaceView.setVisibility(View.INVISIBLE);
-        mSurfaceView2.setVisibility(View.INVISIBLE);
     }
 
     public void showSurfaceView() {
         mSurfaceView.setVisibility(View.VISIBLE);
-        mSurfaceView2.setVisibility(View.VISIBLE);
-    }
-
-    public void setSurfaceView(boolean show) {
-        if (show) {
-            mSurfaceView2.setVisibility(View.VISIBLE);
-        } else {
-            mSurfaceView2.setVisibility(View.INVISIBLE);
-        }
     }
 
     public void setPreviewSize(int width, int height) {
+        mPreviewWidth = width;
+        mPreviewHeight = height;
         mSurfaceView.getHolder().setFixedSize(width, height);
         mCameraControls.setPreviewRatio(0, true);
         mSurfaceView.setAspectRatio(height, width);
