@@ -159,7 +159,6 @@ public class CaptureModule implements CameraModule, PhotoController,
     private boolean mAutoFocusSupported;
     // The degrees of the device rotated clockwise from its natural orientation.
     private int mOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
-    private int mJpegQuality;
     private boolean mFirstTimeInitialized;
     private boolean mInitialized = false;
     private boolean mIsLinked = false;
@@ -1738,7 +1737,9 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     private void applyJpegQuality(CaptureRequest.Builder request) {
-        request.set(CaptureRequest.JPEG_QUALITY, (byte) mJpegQuality);
+        String value = mSettingsManager.getValue(SettingsManager.KEY_JPEG_QUALITY);
+        int jpegQuality = getQualityNumber(value);
+        request.set(CaptureRequest.JPEG_QUALITY, (byte) jpegQuality);
     }
 
     private void applyAFRegions(CaptureRequest.Builder request, int id) {
@@ -1913,7 +1914,6 @@ public class CaptureModule implements CameraModule, PhotoController,
                     mActivity.updateStorageSpaceAndHint();
                     continue;
                 case SettingsManager.KEY_JPEG_QUALITY:
-                    mJpegQuality = getQualityNumber(value);
                     estimateJpegFileSize();
                     continue;
                 case SettingsManager.KEY_CAMERA2:
