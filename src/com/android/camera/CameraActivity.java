@@ -1595,12 +1595,11 @@ public class CameraActivity extends Activity
 
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
-                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
             mHasCriticalPermissions = true;
         } else {
             mHasCriticalPermissions = false;
         }
-
         if ((checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
                 !mHasCriticalPermissions) {
             final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
