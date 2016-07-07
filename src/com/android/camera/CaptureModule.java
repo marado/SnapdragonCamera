@@ -166,7 +166,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     // The degrees of the device rotated clockwise from its natural orientation.
     private int mOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
     private boolean mFirstTimeInitialized;
-    private boolean mInitialized = false;
+    private boolean mCamerasOpened = false;
     private boolean mIsLinked = false;
     private long mCaptureStartTime;
     private boolean mPaused = true;
@@ -395,23 +395,23 @@ public class CaptureModule implements CameraModule, PhotoController,
             if (mPaused) {
                 return;
             }
+
+            mCameraDevice[id] = cameraDevice;
+            mCameraOpened[id] = true;
+
             if (isBackCamera() && getCameraMode() == DUAL_MODE && id == BAYER_ID) {
                 Message msg = mCameraHandler.obtainMessage(OPEN_CAMERA, MONO_ID);
                 mCameraHandler.sendMessage(msg);
-            }
-            if (!mInitialized) {
-                mInitialized = true;
+            } else {
+                mCamerasOpened = true;
                 mActivity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         mUI.onCameraOpened(mCameraIdList);
                     }
                 });
+                createSessions();
             }
-
-            mCameraDevice[id] = cameraDevice;
-            mCameraOpened[id] = true;
-            createSession(id);
         }
 
         @Override
@@ -419,8 +419,9 @@ public class CaptureModule implements CameraModule, PhotoController,
             int id = Integer.parseInt(cameraDevice.getId());
             Log.d(TAG, "onDisconnected " + id);
             cameraDevice.close();
-            mCameraDevice = null;
+            mCameraDevice[id] = null;
             mCameraOpenCloseLock.release();
+            mCamerasOpened = false;
         }
 
         @Override
@@ -430,6 +431,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             cameraDevice.close();
             mCameraDevice[id] = null;
             mCameraOpenCloseLock.release();
+            mCamerasOpened = false;
             if (null != mActivity) {
                 mActivity.finish();
             }
@@ -441,6 +443,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             Log.d(TAG, "onClosed " + id);
             mCameraDevice[id] = null;
             mCameraOpenCloseLock.release();
+            mCamerasOpened = false;
         }
 
     };
@@ -537,6 +540,26 @@ public class CaptureModule implements CameraModule, PhotoController,
             }
         }
         mNamedImages = new NamedImages();
+    }
+
+    private void createSessions() {
+        if (mPaused || !mCamerasOpened || !mSurfaceReady) return;
+        if (isBackCamera()) {
+            switch (getCameraMode()) {
+                case DUAL_MODE:
+                    createSession(BAYER_ID);
+                    createSession(MONO_ID);
+                    break;
+                case BAYER_MODE:
+                    createSession(BAYER_ID);
+                    break;
+                case MONO_MODE:
+                    createSession(MONO_ID);
+                    break;
+            }
+        } else {
+            createSession(FRONT_ID);
+        }
     }
 
     private void createSession(final int id) {
@@ -1023,7 +1046,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         Log.d(TAG, "closeCamera");
         for (int i = 0; i < MAX_NUM_CAM; i++) {
             if (null != mCaptureSession[i]) {
-                if (mIsLinked) {
+                if (mIsLinked && mCamerasOpened) {
                     unLinkBayerMono(i);
                     try {
                         mCaptureSession[i].capture(mPreviewRequestBuilder[i].build(), null,
@@ -1368,7 +1391,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void onSingleTapUp(View view, int x, int y) {
-        if (mPaused || mCameraDevice == null || !mFirstTimeInitialized || !mAutoFocusSupported ||
+        if (mPaused || !mCamerasOpened || !mFirstTimeInitialized || !mAutoFocusSupported ||
                 !isTouchToFocusAllowed()) {
             return;
         }
@@ -1462,22 +1485,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         }
         Log.d(TAG, "onPreviewUIReady");
         mSurfaceReady = true;
-        if (isBackCamera()) {
-            switch (getCameraMode()) {
-                case DUAL_MODE:
-                    createSession(BAYER_ID);
-                    createSession(MONO_ID);
-                    break;
-                case BAYER_MODE:
-                    createSession(BAYER_ID);
-                    break;
-                case MONO_MODE:
-                    createSession(MONO_ID);
-                    break;
-            }
-        } else {
-            createSession(FRONT_ID);
-        }
+        createSessions();
     }
 
     @Override
