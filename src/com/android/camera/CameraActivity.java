@@ -202,8 +202,6 @@ public class CameraActivity extends Activity
     private OnScreenHint mStorageHint;
     private long mStorageSpaceBytes = Storage.LOW_STORAGE_THRESHOLD_BYTES;
     private boolean mSecureCamera;
-    // This is a hack to speed up the start of SecureCamera.
-    private static boolean sFirstStartAfterScreenOn = true;
     private int mLastRawOrientation;
     private MyOrientationEventListener mOrientationListener;
     private Handler mMainHandler;
@@ -328,23 +326,6 @@ public class CameraActivity extends Activity
         registerReceiver(mSDcardMountedReceiver, filter);
     }
 
-    // close activity when screen turns off
-    private BroadcastReceiver mScreenOffReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            finish();
-        }
-    };
-
-    private static BroadcastReceiver sScreenOffReceiver;
-
-    private static class ScreenOffReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            sFirstStartAfterScreenOn = true;
-        }
-    }
-
     private class MainHandler extends Handler {
         public MainHandler(Looper looper) {
             super(looper);
@@ -367,10 +348,6 @@ public class CameraActivity extends Activity
         mOnActionBarVisibilityListener = listener;
     }
 
-    public static boolean isFirstStartAfterScreenOn() {
-        return sFirstStartAfterScreenOn;
-    }
-
     public static boolean isPieMenuEnabled() {
         return PIE_MENU_ENABLED;
     }
@@ -381,10 +358,6 @@ public class CameraActivity extends Activity
 
     public void enableDeveloperMenu() {
         mDeveloperMenuEnabled = true;
-    }
-
-    public static void resetFirstStartAfterScreenOn() {
-        sFirstStartAfterScreenOn = false;
     }
 
     private String fileNameFromDataID(int dataID) {
@@ -1393,18 +1366,6 @@ public class CameraActivity extends Activity
                 Log.d(TAG, "acquire wake lock");
             }
             win.setAttributes(params);
-
-            // Filter for screen off so that we can finish secure camera activity
-            // when screen is off.
-            IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-            registerReceiver(mScreenOffReceiver, filter);
-            // TODO: This static screen off event receiver is a workaround to the
-            // double onResume() invocation (onResume->onPause->onResume). We should
-            // find a better solution to this.
-            if (sScreenOffReceiver == null) {
-                sScreenOffReceiver = new ScreenOffReceiver();
-                registerReceiver(sScreenOffReceiver, filter);
-            }
         }
         GcamHelper.init(getContentResolver());
 
@@ -1672,9 +1633,6 @@ public class CameraActivity extends Activity
         if (mWakeLock != null && mWakeLock.isHeld()) {
             mWakeLock.release();
             Log.d(TAG, "wake lock release");
-        }
-        if (mSecureCamera) {
-            unregisterReceiver(mScreenOffReceiver);
         }
         getContentResolver().unregisterContentObserver(mLocalImagesObserver);
         getContentResolver().unregisterContentObserver(mLocalVideosObserver);
