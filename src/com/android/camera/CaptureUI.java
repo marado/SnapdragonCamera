@@ -106,7 +106,8 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     String[] mDeveloperKeys = new String[]{
             SettingsManager.KEY_MONO_ONLY,
             SettingsManager.KEY_CLEARSIGHT,
-            SettingsManager.KEY_MONO_PREVIEW
+            SettingsManager.KEY_MONO_PREVIEW,
+            SettingsManager.KEY_MPO
     };
     private CameraActivity mActivity;
     private View mRootView;
