@@ -2357,7 +2357,11 @@ public class PhotoModule
         mParameters = mCameraDevice.getParameters();
         mCameraPreviewParamsReady = true;
         mInitialParams = mParameters;
-        if (mFocusManager == null) initializeFocusManager();
+        if (mFocusManager == null) {
+            initializeFocusManager();
+        } else {
+            mFocusManager.setParameters(mInitialParams);
+        }
         initializeCapabilities();
         mHandler.sendEmptyMessageDelayed(CAMERA_OPEN_DONE, 100);
         return;
@@ -3773,14 +3777,18 @@ public class PhotoModule
         if (refocusOn.equals(mSceneMode)) {
             try {
                 mSceneMode = Parameters.SCENE_MODE_AUTO;
-                mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, refocusOn);
-                mUI.showRefocusDialog();
+                if (mHandler.getLooper() == Looper.myLooper()) {
+                    mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, refocusOn);
+                    mUI.showRefocusDialog();
+                }
             } catch (NullPointerException e) {
             }
         } else if (optizoomOn.equals(mSceneMode)) {
             try {
                 mSceneMode = Parameters.SCENE_MODE_AUTO;
-                mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, optizoomOn);
+                if (mHandler.getLooper() == Looper.myLooper()) {
+                    mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, optizoomOn);
+                }
             } catch (NullPointerException e) {
             }
         } else if (mSceneMode == null) {
