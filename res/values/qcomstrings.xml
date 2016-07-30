@@ -975,6 +975,14 @@
     <string name="clearsight_capture_success">ClearSight capture successful</string>
     <string name="clearsight_capture_fail">ClearSight capture failed</string>
 
+    <string name="pref_camera2_mpo_title" translatable="true">MPO Format</string>
+    <string name="pref_camera2_mpo_default" translatable="false">off</string>
+    <string name="pref_camera2_mpo_entry_on" translatable="false">On</string>
+    <string name="pref_camera2_mpo_entry_off" translatable="false">Off</string>
+
+    <string name="pref_camera2_mpo_value_on" translatable="false">on</string>
+    <string name="pref_camera2_mpo_value_off" translatable="false">off</string>
+
     <string name="pref_camera2_scenemode_default" translatable="false">0</string>
     <string name="pref_camera2_whitebalance_default" translatable="false">1</string>
     <string name="pref_camera2_coloreffect_default" translatable="false">0</string>
