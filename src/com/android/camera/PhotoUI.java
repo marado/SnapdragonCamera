@@ -430,6 +430,7 @@ public class PhotoUI implements PieListener,
         }
 
         mSurfaceView.setLayoutParams(lp);
+        mRootView.requestLayout();
         if (mFaceView != null) {
             mFaceView.setLayoutParams(lp);
         }
