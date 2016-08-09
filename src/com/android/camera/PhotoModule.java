@@ -112,6 +112,7 @@ public class PhotoModule
         ShutterButton.OnShutterButtonListener,
         MediaSaveService.Listener,
         OnCountDownFinishedListener,
+        LocationManager.Listener,
         SensorEventListener, MakeupLevelListener {
 
     private static final String TAG = "CAM_PhotoModule";
@@ -575,7 +576,7 @@ public class PhotoModule
         }
         initializeControlByIntent();
         mQuickCapture = mActivity.getIntent().getBooleanExtra(EXTRA_QUICK_CAPTURE, false);
-        mLocationManager = new LocationManager(mActivity, mUI);
+        mLocationManager = new LocationManager(mActivity, this);
         mSensorManager = (SensorManager)(mActivity.getSystemService(Context.SENSOR_SERVICE));
 
         brightnessProgressBar = (ProgressBar)mRootView.findViewById(R.id.progress);
@@ -628,13 +629,23 @@ public class PhotoModule
         }
 
         mLocationPromptTriggered = true;
-        mUI.showLocationDialog();
+
+        /* Enable the location at the begining, always.
+           If the user denies the permission, it will be disabled
+           right away due to exception */
+        enableRecordingLocation(true);
+    }
+
+    @Override
+    public void waitingLocationPermissionResult(boolean result) {
+        mLocationManager.waitingLocationPermissionResult(result);
     }
 
     @Override
     public void enableRecordingLocation(boolean enable) {
         setLocationPreference(enable ? RecordLocationPreference.VALUE_ON
                 : RecordLocationPreference.VALUE_OFF);
+        mLocationManager.recordLocation(enable);
     }
 
     @Override
@@ -680,7 +691,9 @@ public class PhotoModule
                 .apply();
         // TODO: Fix this to use the actual onSharedPreferencesChanged listener
         // instead of invoking manually
-        onSharedPreferenceChanged();
+        if (mUI.mMenuInitialized) {
+            onSharedPreferenceChanged();
+        }
     }
 
     private void onCameraOpened() {
@@ -2209,6 +2222,7 @@ public class PhotoModule
     public synchronized void onShutterButtonClick() {
         if ((mCameraDevice == null)
                 || mPaused || mUI.collapseCameraControls()
+                || !mUI.mMenuInitialized
                 || (mCameraState == SWITCHING_CAMERA)
                 || (mCameraState == PREVIEW_STOPPED)
                 || (mCameraState == LONGSHOT)
@@ -2357,7 +2371,11 @@ public class PhotoModule
         mParameters = mCameraDevice.getParameters();
         mCameraPreviewParamsReady = true;
         mInitialParams = mParameters;
-        if (mFocusManager == null) initializeFocusManager();
+        if (mFocusManager == null) {
+            initializeFocusManager();
+        } else {
+            mFocusManager.setParameters(mInitialParams);
+        }
         initializeCapabilities();
         mHandler.sendEmptyMessageDelayed(CAMERA_OPEN_DONE, 100);
         return;
@@ -3773,14 +3791,18 @@ public class PhotoModule
         if (refocusOn.equals(mSceneMode)) {
             try {
                 mSceneMode = Parameters.SCENE_MODE_AUTO;
-                mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, refocusOn);
-                mUI.showRefocusDialog();
+                if (mHandler.getLooper() == Looper.myLooper()) {
+                    mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, refocusOn);
+                    mUI.showRefocusDialog();
+                }
             } catch (NullPointerException e) {
             }
         } else if (optizoomOn.equals(mSceneMode)) {
             try {
                 mSceneMode = Parameters.SCENE_MODE_AUTO;
-                mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, optizoomOn);
+                if (mHandler.getLooper() == Looper.myLooper()) {
+                    mUI.setPreference(CameraSettings.KEY_ADVANCED_FEATURES, optizoomOn);
+                }
             } catch (NullPointerException e) {
             }
         } else if (mSceneMode == null) {
@@ -4824,6 +4846,12 @@ public class PhotoModule
         mCameraDevice.setParameters(mParameters);
         mParameters = mCameraDevice.getParameters();
     }
+
+    @Override
+    public void onErrorListener(int error) {
+        enableRecordingLocation(false);
+    }
+
 }
 
 /* Below is no longer needed, except to get rid of compile error
