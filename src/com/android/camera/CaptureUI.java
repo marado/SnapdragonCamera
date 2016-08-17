@@ -1273,6 +1273,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
             mMonoDummyOutputAllocation.destroy();
             mMonoDummyOutputAllocation = null;
         }
+        mSurfaceViewMono.setVisibility(View.GONE);
     }
 
     public boolean collapseCameraControls() {
