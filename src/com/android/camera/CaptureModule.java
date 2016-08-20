@@ -27,8 +27,10 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -146,6 +148,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     MeteringRectangle[][] mAFRegions = new MeteringRectangle[MAX_NUM_CAM][];
+    MeteringRectangle[][] mAERegions = new MeteringRectangle[MAX_NUM_CAM][];
     CaptureRequest.Key<Byte> BayerMonoLinkEnableKey =
             new CaptureRequest.Key<>("org.codeaurora.qcamera3.dualcam_link_meta_data.enable",
                     Byte.class);
@@ -168,7 +171,8 @@ public class CaptureModule implements CameraModule, PhotoController,
     private int mControlAFMode = CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
     private int mLastResultAFState = -1;
     private Rect[] mCropRegion = new Rect[MAX_NUM_CAM];
-    private boolean mAutoFocusSupported;
+    private boolean mAutoFocusRegionSupported;
+    private boolean mAutoExposureRegionSupported;
     // The degrees of the device rotated clockwise from its natural orientation.
     private int mOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
     private boolean mFirstTimeInitialized;
@@ -189,6 +193,8 @@ public class CaptureModule implements CameraModule, PhotoController,
     private SettingsManager mSettingsManager;
     private long SECONDARY_SERVER_MEM;
     private boolean mLongshotActive = false;
+    private int mDisplayRotation;
+    private int mDisplayOrientation;
 
     /**
      * A {@link CameraCaptureSession } for camera preview.
@@ -682,6 +688,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         Log.d(TAG, "setAFModeToPreview " + afMode);
         mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AF_MODE, afMode);
         applyAFRegions(mPreviewRequestBuilder[id], id);
+        applyAERegions(mPreviewRequestBuilder[id], id);
         try {
             if(id == MONO_ID && !canStartMonoPreview()) {
                 mCaptureSession[id].capture(mPreviewRequestBuilder[id]
@@ -1050,7 +1057,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                 }
 
             }
-            mAutoFocusSupported = mSettingsManager.isAutoFocusSupported(mCameraIdList);
+            mAutoFocusRegionSupported = mSettingsManager.isAutoFocusRegionSupported(mCameraIdList);
+            mAutoExposureRegionSupported = mSettingsManager.isAutoExposureRegionSupported(mCameraIdList);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -1152,6 +1160,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void applySettingsForLockFocus(CaptureRequest.Builder builder, int id) {
         builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
         applyAFRegions(builder, id);
+        applyAERegions(builder, id);
         applyCommonSettings(builder, id);
     }
 
@@ -1177,6 +1186,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest
                 .CONTROL_AF_TRIGGER_START);
         applyAFRegions(builder, id);
+        applyAERegions(builder, id);
         applyCommonSettings(builder, id);
     }
 
@@ -1312,6 +1322,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         mUI.setSwitcherIndex();
         mCameraIdList = new ArrayList<>();
         setUpCameraOutputs();
+        setDisplayOrientation();
         startBackgroundThread();
         Message msg = Message.obtain();
         msg.what = OPEN_CAMERA;
@@ -1345,7 +1356,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void onConfigurationChanged(Configuration config) {
-
+        setDisplayOrientation();
     }
 
     @Override
@@ -1463,8 +1474,8 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void onSingleTapUp(View view, int x, int y) {
-        if (mPaused || !mCamerasOpened || !mFirstTimeInitialized || !mAutoFocusSupported ||
-                !isTouchToFocusAllowed()) {
+        if (mPaused || !mCamerasOpened || !mFirstTimeInitialized || !mAutoFocusRegionSupported ||
+                !mAutoExposureRegionSupported || !isTouchToFocusAllowed()) {
             return;
         }
         Log.d(TAG, "onSingleTapUp " + x + " " + y);
@@ -1542,7 +1553,9 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void updateCameraOrientation() {
-
+        if (mDisplayRotation != CameraUtil.getDisplayRotation(mActivity)) {
+            setDisplayOrientation();
+        }
     }
 
     @Override
@@ -1841,6 +1854,14 @@ public class CaptureModule implements CameraModule, PhotoController,
         }
     }
 
+    private void applyAERegions(CaptureRequest.Builder request, int id) {
+        if (mControlAFMode == CaptureRequest.CONTROL_AF_MODE_AUTO) {
+            request.set(CaptureRequest.CONTROL_AE_REGIONS, mAERegions[id]);
+        } else {
+            request.set(CaptureRequest.CONTROL_AE_REGIONS, ZERO_WEIGHT_3A_REGION);
+        }
+    }
+
     private void applySceneMode(CaptureRequest.Builder request) {
         String value = mSettingsManager.getValue(SettingsManager.KEY_SCENE_MODE);
         if (value == null) return;
@@ -1941,28 +1962,44 @@ public class CaptureModule implements CameraModule, PhotoController,
         Point p = mUI.getSurfaceViewSize();
         int width = p.x;
         int height = p.y;
-        x = x / width;
-        y = y / height;
-        mAFRegions[id] = afRectangle(x, y, mCropRegion[id]);
+        mAFRegions[id] = afaeRectangle(x, y, width, height, 1f, mCropRegion[id]);
+        mAERegions[id] = afaeRectangle(x, y, width, height, 1.5f, mCropRegion[id]);
         mCameraHandler.removeMessages(CANCEL_TOUCH_FOCUS, id);
         autoFocusTrigger(id);
     }
 
-    private MeteringRectangle[] afRectangle(float x, float y, Rect cropRegion) {
-        int side = Math.max(cropRegion.width(), cropRegion.height()) / 8;
-        int xCenter = (int) (cropRegion.left + x * cropRegion.width());
-        int yCenter = (int) (cropRegion.top + y * cropRegion.height());
-        Rect meteringRegion = new Rect(xCenter - side / 2, yCenter - side / 2, xCenter +
-                side / 2, yCenter + side / 2);
+    private MeteringRectangle[] afaeRectangle(float x, float y, int width, int height,
+                                              float multiple, Rect cropRegion) {
+        int side = (int) (Math.max(width, height) / 8 * multiple);
+        RectF meteringRegionF = new RectF(x - side / 2, y - side / 2, x + side / 2, y + side / 2);
 
-        meteringRegion.left = CameraUtil.clamp(meteringRegion.left, cropRegion.left, cropRegion
-                .right);
-        meteringRegion.top = CameraUtil.clamp(meteringRegion.top, cropRegion.top, cropRegion
-                .bottom);
-        meteringRegion.right = CameraUtil.clamp(meteringRegion.right, cropRegion.left, cropRegion
-                .right);
+        // inverse of matrix1 will translate from touch to (-1000 to 1000), which is camera1
+        // coordinates, while accounting for orientation and mirror
+        Matrix matrix1 = new Matrix();
+        CameraUtil.prepareMatrix(matrix1, !isBackCamera(), mDisplayOrientation, width, height);
+        matrix1.invert(matrix1);
+
+        // inverse of matrix2 will translate from (-1000 to 1000) to camera 2 coordinates
+        Matrix matrix2 = new Matrix();
+        matrix2.preTranslate(-cropRegion.width() / 2f, -cropRegion.height() / 2f);
+        matrix2.postScale(2000f / cropRegion.width(), 2000f / cropRegion.height());
+        matrix2.invert(matrix2);
+
+        matrix1.mapRect(meteringRegionF);
+        matrix2.mapRect(meteringRegionF);
+
+        Rect meteringRegion = new Rect((int) meteringRegionF.left, (int) meteringRegionF.top,
+                (int) meteringRegionF.right, (int) meteringRegionF.bottom);
+
+        meteringRegion.left = CameraUtil.clamp(meteringRegion.left, cropRegion.left,
+                cropRegion.right);
+        meteringRegion.top = CameraUtil.clamp(meteringRegion.top, cropRegion.top,
+                cropRegion.bottom);
+        meteringRegion.right = CameraUtil.clamp(meteringRegion.right, cropRegion.left,
+                cropRegion.right);
         meteringRegion.bottom = CameraUtil.clamp(meteringRegion.bottom, cropRegion.top,
                 cropRegion.bottom);
+
         MeteringRectangle[] meteringRectangle = new MeteringRectangle[1];
         meteringRectangle[0] = new MeteringRectangle(meteringRegion, 1);
         return meteringRectangle;
@@ -1981,6 +2018,11 @@ public class CaptureModule implements CameraModule, PhotoController,
             });
         }
         mLastResultAFState = resultAFState;
+    }
+
+    private void setDisplayOrientation() {
+        mDisplayRotation = CameraUtil.getDisplayRotation(mActivity);
+        mDisplayOrientation = CameraUtil.getDisplayOrientation(mDisplayRotation, getMainCameraId());
     }
 
     @Override
