@@ -43,6 +43,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.location.Location;
 import android.media.CameraProfile;
 import android.media.Image;
 import android.media.ImageReader;
@@ -901,6 +902,17 @@ public class CaptureModule implements CameraModule, PhotoController,
             // Orientation
             int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, CameraUtil.getJpegRotation(id, rotation));
+
+            Location location = mLocationManager.getCurrentLocation();
+            if(location != null) {
+                Log.d(TAG, "captureStillPicture gps: " + location.toString());
+                // workaround for Google bug. Need to convert timestamp from ms -> sec
+                location.setTime(location.getTime()/1000);
+                captureBuilder.set(CaptureRequest.JPEG_GPS_LOCATION, location);
+            } else {
+                Log.d(TAG, "captureStillPicture no location - getRecordLocation: " + getRecordLocation());
+            }
+
             captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
             captureBuilder.addTarget(getPreviewSurface(id));
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, mControlAFMode);
