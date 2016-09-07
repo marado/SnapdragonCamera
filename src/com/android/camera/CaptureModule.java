@@ -840,6 +840,12 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void autoFocusTrigger(int id) {
         Log.d(TAG, "autoFocusTrigger " + id);
+
+        if (null == mActivity || null == mCameraDevice[id] || null == mCaptureSession[id]) {
+            Log.e(TAG, "Camera is not ready yet to take a picture.");
+            return;
+        }
+
         try {
             CaptureRequest.Builder builder = mCameraDevice[id].createCaptureRequest(CameraDevice
                     .TEMPLATE_PREVIEW);
