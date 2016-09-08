@@ -1700,7 +1700,6 @@ public class CameraActivity extends Activity
             if(keyCode == KeyEvent.KEYCODE_BACK &&
                     RotationPolicy.isRotationSupported(this)) {
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-                RotationPolicy.setRotationLock(this,true);
             }
             // Prevent software keyboard or voice search from showing up.
             if (keyCode == KeyEvent.KEYCODE_SEARCH
