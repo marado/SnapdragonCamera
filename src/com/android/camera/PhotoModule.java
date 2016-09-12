@@ -548,7 +548,6 @@ public class PhotoModule
         if (mCameraState == SNAPSHOT_IN_PROGRESS) {
             return;
         }
-        mUI.hidePreviewCover();
         mFocusManager.onPreviewStarted();
         startFaceDetection();
         locationFirstRun();
@@ -2684,8 +2683,15 @@ public class PhotoModule
         }
 
         setCameraParameters(UPDATE_PARAM_ALL);
-
+        mCameraDevice.setOneShotPreviewCallback(mHandler,
+                new CameraManager.CameraPreviewDataCallback() {
+                    @Override
+                    public void onPreviewFrame(byte[] data, CameraProxy camera) {
+                        mUI.hidePreviewCover();
+                    }
+                });
         mCameraDevice.startPreview();
+
         setCameraState(IDLE);
         mHandler.sendEmptyMessage(ON_PREVIEW_STARTED);
 
