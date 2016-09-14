@@ -199,6 +199,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private boolean mLongshotActive = false;
     private int mDisplayRotation;
     private int mDisplayOrientation;
+    private Size mThumbnailSize;
 
     /**
      * A {@link CameraCaptureSession } for camera preview.
@@ -902,6 +903,8 @@ public class CaptureModule implements CameraModule, PhotoController,
             // Orientation
             int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, CameraUtil.getJpegRotation(id, rotation));
+            captureBuilder.set(CaptureRequest.JPEG_THUMBNAIL_SIZE, mThumbnailSize);
+            captureBuilder.set(CaptureRequest.JPEG_THUMBNAIL_QUALITY, (byte)80);
 
             Location location = mLocationManager.getCurrentLocation();
             if(location != null) {
@@ -1059,6 +1062,10 @@ public class CaptureModule implements CameraModule, PhotoController,
                         .KEY_PICTURE_SIZE);
 
                 Size size = parsePictureSize(pictureSize);
+
+                Size[] thumbSizes = characteristics.get(CameraCharacteristics.JPEG_AVAILABLE_THUMBNAIL_SIZES);
+                mThumbnailSize = getOptimalPreviewSize(size, thumbSizes, 0, 0); // find largest thumb size
+                Log.d(TAG, "setUpCameraOutputs - thumbnail size: " + mThumbnailSize.toString());
 
                 if (i == getMainCameraId()) {
                     Point screenSize = new Point();
