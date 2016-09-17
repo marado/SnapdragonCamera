@@ -16,6 +16,7 @@
 
 package com.android.camera;
 
+import android.Manifest;
 import android.animation.Animator;
 import android.annotation.TargetApi;
 import android.app.ActionBar;
@@ -30,6 +31,7 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -115,6 +117,10 @@ public class CameraActivity extends Activity
     // panorama. If the extra is not set, it is in the normal camera mode.
     public static final String SECURE_CAMERA_EXTRA = "secure_camera";
 
+    private static final int PERMISSIONS_ACTIVITY_REQUEST_CODE = 1;
+    private static final int PERMISSIONS_RESULT_CODE_OK = 0;
+    private static final int PERMISSIONS_RESULT_CODE_FAILED = 1;
+
     /**
      * Request code from an activity we started that indicated that we do not
      * want to reset the view to the preview in onResume.
@@ -179,6 +185,7 @@ public class CameraActivity extends Activity
     protected boolean mIsModuleSwitchInProgress = false;
     private boolean mPaused = true;
 
+    private boolean mHasCriticalPermissions;
     private Uri[] mNfcPushUris = new Uri[1];
 
     private ShareActionProvider mStandardShareActionProvider;
@@ -1034,6 +1041,7 @@ public class CameraActivity extends Activity
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        checkPermissions();
         GcamHelper.init(getContentResolver());
 
         getWindow().requestFeature(Window.FEATURE_ACTION_BAR);
@@ -1240,11 +1248,46 @@ public class CameraActivity extends Activity
             mIsEditActivityInProgress = false;
         } else {
             super.onActivityResult(requestCode, resultCode, data);
+            // Close the app if critical permissions are missing.
+            if (requestCode == PERMISSIONS_ACTIVITY_REQUEST_CODE && resultCode == PERMISSIONS_RESULT_CODE_FAILED) {
+                finish();
+            }
         }
     }
 
+    /**
+     * Checks if any of the needed Android runtime permissions are missing.
+     * If they are, then launch the permissions activity under one of the following conditions:
+     * a) The permissions dialogs have not run yet. We will ask for permission only once.
+     * b) If the missing permissions are critical to the app running, we will display a fatal error dialog.
+     * Critical permissions are: camera, microphone and storage. The app cannot run without them.
+     * Non-critical permission is location.
+     */
+    private void checkPermissions() {
+
+        if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+            mHasCriticalPermissions = true;
+        } else {
+            mHasCriticalPermissions = false;
+        }
+
+        if ((checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) ||
+                !mHasCriticalPermissions) {
+            Intent intent = new Intent(this, PermissionsActivity.class);
+            startActivityForResult(intent, PERMISSIONS_ACTIVITY_REQUEST_CODE);
+        }
+    }
+
+
     @Override
     public void onResume() {
+        if (!mHasCriticalPermissions) {
+            super.onResume();
+            Log.v(TAG, "Missing critical permissions.");
+            return;
+        }
         // TODO: Handle this in OrientationManager.
         // Auto-rotate off
         if (Settings.System.getInt(getContentResolver(),
