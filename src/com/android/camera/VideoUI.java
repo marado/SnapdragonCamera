@@ -928,6 +928,7 @@ public class VideoUI implements PieRenderer.PieListener,
             mRecordingTimeView.setVisibility(View.GONE);
             mPauseButton.setVisibility(View.GONE);
         }
+        mRootView.requestLayout();
     }
 
     public void hideUIwhileRecording() {
