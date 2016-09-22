@@ -31,7 +31,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -65,7 +64,6 @@ import android.os.PowerManager.WakeLock;
 import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -218,6 +216,7 @@ public class CameraActivity extends Activity
     private View mPreviewCover;
     private FrameLayout mPreviewContentLayout;
     private boolean mPaused = true;
+    private boolean mIsGoingToCamera2 = false;
 
     private Uri[] mNfcPushUris = new Uri[1];
 
@@ -1822,11 +1821,17 @@ public class CameraActivity extends Activity
         return mSecureCamera;
     }
 
+    public boolean isGoingToCamera2() {
+        return mIsGoingToCamera2;
+    }
+
     @Override
     public void onModuleSelected(int moduleIndex) {
         boolean cam2on = SettingsManager.getInstance().isCamera2On();
-        if (cam2on && moduleIndex == ModuleSwitcher.PHOTO_MODULE_INDEX)
+        mIsGoingToCamera2 = cam2on && moduleIndex == ModuleSwitcher.PHOTO_MODULE_INDEX;
+        if (mIsGoingToCamera2) {
             moduleIndex = ModuleSwitcher.CAPTURE_MODULE_INDEX;
+        }
         if (mCurrentModuleIndex == moduleIndex) {
             if (mCurrentModuleIndex != ModuleSwitcher.CAPTURE_MODULE_INDEX) {
                 return;
@@ -1837,6 +1842,7 @@ public class CameraActivity extends Activity
         setModuleFromIndex(moduleIndex);
 
         openModule(mCurrentModule);
+        mIsGoingToCamera2 = false;
         mCurrentModule.onOrientationChanged(mLastRawOrientation);
         if (mMediaSaveService != null) {
             mCurrentModule.onMediaSaveServiceConnected(mMediaSaveService);
