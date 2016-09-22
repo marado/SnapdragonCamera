@@ -60,12 +60,14 @@ import com.android.camera.CameraManager;
 import com.android.camera.CameraSettings;
 import com.android.camera.ui.RotateTextToast;
 import com.android.camera.util.IntentHelper;
+
 import org.codeaurora.snapcam.R;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -1168,4 +1170,16 @@ public class CameraUtil {
         return retRatio;
     }
 
+    /**
+     * Compares two {@code Size}s based on their areas.
+     */
+    public static class CompareSizesByArea implements Comparator<android.util.Size> {
+
+        @Override
+        public int compare(android.util.Size lhs, android.util.Size rhs) {
+            // We cast here to ensure the multiplications won't overflow
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
+                    (long) rhs.getWidth() * rhs.getHeight());
+        }
+    }
 }

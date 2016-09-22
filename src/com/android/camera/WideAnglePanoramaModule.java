@@ -376,7 +376,11 @@ public class WideAnglePanoramaModule
 
     private void releaseCamera() {
         if (mCameraDevice != null) {
-            CameraHolder.instance().release();
+            if (mActivity.isGoingToCamera2()) {
+                CameraHolder.instance().strongRelease();
+            } else {
+                CameraHolder.instance().release();
+            }
             mCameraDevice.setErrorCallback(null);
             mCameraDevice = null;
             mCameraState = PREVIEW_STOPPED;
