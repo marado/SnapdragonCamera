@@ -1928,6 +1928,7 @@ public class PhotoModule
                 updatePowerMode();
                 mCameraDevice.setParameters(mParameters);
             }
+            mUI.tryToCloseSubList();
             mUI.setOrientation(mOrientation, true);
             if (mGraphView != null) {
                 mGraphView.setRotation(-mOrientation);
