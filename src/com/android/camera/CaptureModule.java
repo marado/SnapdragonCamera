@@ -2324,8 +2324,16 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     @Override
-    public void onClearSightSuccess() {
+    public void onReleaseShutterLock() {
+        Log.d(TAG, "onReleaseShutterLock");
+        unlockFocus(BAYER_ID);
+        unlockFocus(MONO_ID);
+    }
+
+    @Override
+    public void onClearSightSuccess(byte[] thumbnailBytes) {
         Log.d(TAG, "onClearSightSuccess");
+        if(thumbnailBytes != null) mActivity.updateThumbnail(thumbnailBytes);
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -2333,14 +2341,12 @@ public class CaptureModule implements CameraModule, PhotoController,
                         Toast.LENGTH_SHORT).show();
             }
         });
-
-        unlockFocus(BAYER_ID);
-        unlockFocus(MONO_ID);
     }
 
     @Override
-    public void onClearSightFailure() {
+    public void onClearSightFailure(byte[] thumbnailBytes) {
         Log.d(TAG, "onClearSightFailure");
+        if(thumbnailBytes != null) mActivity.updateThumbnail(thumbnailBytes);
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
