@@ -1152,12 +1152,14 @@ public class CaptureModule implements CameraModule, PhotoController,
             applySettingsForUnlockExposure(mPreviewRequestBuilder[id], id);
             setAFModeToPreview(id, mControlAFMode);
             mTakingPicture[id] = false;
-            mActivity.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mUI.enableShutter(true);
-                }
-            });
+            if (id == getMainCameraId()) {
+                mActivity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mUI.enableShutter(true);
+                    }
+                });
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
