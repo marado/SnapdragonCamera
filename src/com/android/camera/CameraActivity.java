@@ -1828,7 +1828,8 @@ public class CameraActivity extends Activity
     @Override
     public void onModuleSelected(int moduleIndex) {
         boolean cam2on = SettingsManager.getInstance().isCamera2On();
-        mIsGoingToCamera2 = cam2on && moduleIndex == ModuleSwitcher.PHOTO_MODULE_INDEX;
+        mIsGoingToCamera2 = moduleIndex == ModuleSwitcher.CAPTURE_MODULE_INDEX ||
+                (cam2on && moduleIndex == ModuleSwitcher.PHOTO_MODULE_INDEX);
         if (mIsGoingToCamera2) {
             moduleIndex = ModuleSwitcher.CAPTURE_MODULE_INDEX;
         }
