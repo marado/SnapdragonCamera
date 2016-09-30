@@ -43,6 +43,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.location.Location;
 import android.media.CameraProfile;
 import android.media.Image;
 import android.media.ImageReader;
@@ -198,6 +199,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private boolean mLongshotActive = false;
     private int mDisplayRotation;
     private int mDisplayOrientation;
+    private Size mThumbnailSize;
 
     /**
      * A {@link CameraCaptureSession } for camera preview.
@@ -901,10 +903,24 @@ public class CaptureModule implements CameraModule, PhotoController,
             // Orientation
             int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, CameraUtil.getJpegRotation(id, rotation));
+            captureBuilder.set(CaptureRequest.JPEG_THUMBNAIL_SIZE, mThumbnailSize);
+            captureBuilder.set(CaptureRequest.JPEG_THUMBNAIL_QUALITY, (byte)80);
+
+            Location location = mLocationManager.getCurrentLocation();
+            if(location != null) {
+                Log.d(TAG, "captureStillPicture gps: " + location.toString());
+                // workaround for Google bug. Need to convert timestamp from ms -> sec
+                location.setTime(location.getTime()/1000);
+                captureBuilder.set(CaptureRequest.JPEG_GPS_LOCATION, location);
+            } else {
+                Log.d(TAG, "captureStillPicture no location - getRecordLocation: " + getRecordLocation());
+            }
+
             captureBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
             captureBuilder.addTarget(getPreviewSurface(id));
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, mControlAFMode);
             captureBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+            applySettingsForLockExposure(captureBuilder, id);
             applySettingsForCapture(captureBuilder, id);
 
             if(csEnabled) {
@@ -1048,6 +1064,10 @@ public class CaptureModule implements CameraModule, PhotoController,
 
                 Size size = parsePictureSize(pictureSize);
 
+                Size[] thumbSizes = characteristics.get(CameraCharacteristics.JPEG_AVAILABLE_THUMBNAIL_SIZES);
+                mThumbnailSize = getOptimalPreviewSize(size, thumbSizes, 0, 0); // find largest thumb size
+                Log.d(TAG, "setUpCameraOutputs - thumbnail size: " + mThumbnailSize.toString());
+
                 if (i == getMainCameraId()) {
                     Point screenSize = new Point();
                     mActivity.getWindowManager().getDefaultDisplay().getSize(screenSize);
@@ -1139,12 +1159,14 @@ public class CaptureModule implements CameraModule, PhotoController,
             applySettingsForUnlockExposure(mPreviewRequestBuilder[id], id);
             setAFModeToPreview(id, mControlAFMode);
             mTakingPicture[id] = false;
-            mActivity.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    mUI.enableShutter(true);
-                }
-            });
+            if (id == getMainCameraId()) {
+                mActivity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mUI.enableShutter(true);
+                    }
+                });
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -1163,44 +1185,32 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void closeCamera() {
         Log.d(TAG, "closeCamera");
 
-        // Close camera starting with AUX first
-        for (int i = MAX_NUM_CAM-1; i >= 0; i--) {
-            if (null != mCaptureSession[i]) {
-                if (mIsLinked && mCamerasOpened) {
-                    unLinkBayerMono(i);
-                    try {
-                        mCaptureSession[i].capture(mPreviewRequestBuilder[i].build(), null,
-                                mCameraHandler);
-                    } catch (CameraAccessException e) {
-                        e.printStackTrace();
-                    }
-                }
-                mCaptureSession[i].close();
-                mCaptureSession[i] = null;
-            }
-
-            if (null != mImageReader[i]) {
-                mImageReader[i].close();
-                mImageReader[i] = null;
-            }
-        }
         /* no need to set this in the callback and handle asynchronously. This is the same
         reason as why we release the semaphore here, not in camera close callback function
         as we don't have to protect the case where camera open() gets called during camera
         close(). The low level framework/HAL handles the synchronization for open()
         happens after close() */
-        mIsLinked = false;
 
         try {
-            mCameraOpenCloseLock.acquire();
             // Close camera starting with AUX first
             for (int i = MAX_NUM_CAM-1; i >= 0; i--) {
                 if (null != mCameraDevice[i]) {
+                    if (!mCameraOpenCloseLock.tryAcquire(2000, TimeUnit.MILLISECONDS)) {
+                        Log.d(TAG, "Time out waiting to lock camera closing.");
+                        throw new RuntimeException("Time out waiting to lock camera closing");
+                    }
+                    Log.d(TAG, "Closing camera: " + mCameraDevice[i].getId());
                     mCameraDevice[i].close();
                     mCameraDevice[i] = null;
                     mCameraOpened[i] = false;
+                    mCaptureSession[i] = null;
+                }
+                if (null != mImageReader[i]) {
+                    mImageReader[i].close();
+                    mImageReader[i] = null;
                 }
             }
+            mIsLinked = false;
         } catch (InterruptedException e) {
             mCameraOpenCloseLock.release();
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
@@ -2323,8 +2333,16 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     @Override
-    public void onClearSightSuccess() {
+    public void onReleaseShutterLock() {
+        Log.d(TAG, "onReleaseShutterLock");
+        unlockFocus(BAYER_ID);
+        unlockFocus(MONO_ID);
+    }
+
+    @Override
+    public void onClearSightSuccess(byte[] thumbnailBytes) {
         Log.d(TAG, "onClearSightSuccess");
+        if(thumbnailBytes != null) mActivity.updateThumbnail(thumbnailBytes);
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -2332,14 +2350,12 @@ public class CaptureModule implements CameraModule, PhotoController,
                         Toast.LENGTH_SHORT).show();
             }
         });
-
-        unlockFocus(BAYER_ID);
-        unlockFocus(MONO_ID);
     }
 
     @Override
-    public void onClearSightFailure() {
+    public void onClearSightFailure(byte[] thumbnailBytes) {
         Log.d(TAG, "onClearSightFailure");
+        if(thumbnailBytes != null) mActivity.updateThumbnail(thumbnailBytes);
         mActivity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
