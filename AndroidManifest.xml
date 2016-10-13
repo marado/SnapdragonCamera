@@ -51,7 +51,7 @@
         android:logo="@mipmap/ic_launcher_camera"
         android:restoreAnyVersion="true"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Camera" >
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" >
         <activity
             android:name="com.android.camera.CameraActivity"
             android:clearTaskOnLaunch="true"
@@ -62,7 +62,7 @@
             android:logo="@mipmap/ic_launcher_gallery"
             android:screenOrientation="portrait"
             android:taskAffinity="com.android.camera.CameraActivity"
-            android:theme="@style/Theme.Camera"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
             android:windowSoftInputMode="stateAlwaysHidden|adjustPan" >
             <intent-filter>
                 <action android:name="android.media.action.IMAGE_CAPTURE" />
@@ -123,7 +123,7 @@
             android:launchMode="singleTop"
             android:logo="@mipmap/ic_launcher_gallery"
             android:taskAffinity="com.android.camera.SecureCameraActivity"
-            android:theme="@style/Theme.Camera"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
             android:windowSoftInputMode="stateAlwaysHidden|adjustPan" >
             <intent-filter>
                 <action android:name="android.media.action.STILL_IMAGE_CAMERA_SECURE" />
@@ -155,7 +155,7 @@
         <activity
             android:name="com.android.camera.crop.CropActivity"
             android:label="@string/crop_action"
-            android:theme="@style/Theme.Crop"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
             android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
 

@@ -442,7 +442,7 @@ public class CameraUtil {
             naturalWidth = displaySize.y;
             naturalHeight = displaySize.x;
         }
-        return naturalWidth < naturalHeight;
+        return naturalWidth <= naturalHeight;
     }
 
     public static int getDisplayOrientation(int degrees, int cameraId) {

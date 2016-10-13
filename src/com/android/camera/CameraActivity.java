@@ -397,7 +397,7 @@ public class CameraActivity extends Activity
                         if (!full) {
                             // Always show action bar in filmstrip mode
                             CameraActivity.this.setSystemBarsVisibility(true, false);
-                        } else if (mActionBar.isShowing()) {
+                        } else if (mActionBar !=null && mActionBar.isShowing()) {
                             // Hide action bar after time out in full screen mode
                             mMainHandler.sendEmptyMessageDelayed(HIDE_ACTION_BAR,
                                     SHOW_ACTION_BAR_TIMEOUT_MS);
@@ -527,7 +527,7 @@ public class CameraActivity extends Activity
                 public void onToggleSystemDecorsVisibility(int dataID) {
                     // If action bar is showing, hide it immediately, otherwise
                     // show action bar and hide it later
-                    if (mActionBar.isShowing()) {
+                    if (mActionBar != null && mActionBar.isShowing()) {
                         CameraActivity.this.setSystemBarsVisibility(false);
                     } else {
                         // Don't show the action bar if that is the camera preview.
@@ -614,15 +614,17 @@ public class CameraActivity extends Activity
             decorView.setSystemUiVisibility(newSystemUIVisibility);
         }
 
-        boolean currentActionBarVisibility = mActionBar.isShowing();
-        if (visible != currentActionBarVisibility) {
-            if (visible) {
-                mActionBar.show();
-            } else {
-                mActionBar.hide();
-            }
-            if (mOnActionBarVisibilityListener != null) {
-                mOnActionBarVisibilityListener.onActionBarVisibilityChanged(visible);
+        if(mActionBar != null){
+            boolean currentActionBarVisibility = mActionBar.isShowing();
+            if (visible != currentActionBarVisibility) {
+                if (visible) {
+                    mActionBar.show();
+                } else {
+                    mActionBar.hide();
+                }
+                if (mOnActionBarVisibilityListener != null) {
+                    mOnActionBarVisibilityListener.onActionBarVisibilityChanged(visible);
+                }
             }
         }
 
@@ -1373,7 +1375,9 @@ public class CameraActivity extends Activity
         setContentView(R.layout.camera_filmstrip);
 
         mActionBar = getActionBar();
-        mActionBar.addOnMenuVisibilityListener(this);
+        if(mActionBar != null){
+            mActionBar.addOnMenuVisibilityListener(this);
+        }
 
         if (ApiHelper.HAS_ROTATION_ANIMATION) {
             setRotationAnimation();
