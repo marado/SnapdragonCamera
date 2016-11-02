@@ -198,6 +198,9 @@ public class ModuleSwitcher extends RotateImageView
         mPopup.setVisibility(View.INVISIBLE);
         mNeedsAnimationSetup = true;
         for (int i = mDrawIds.length - 1; i >= 0; i--) {
+            if ( i == WIDE_ANGLE_PANO_MODULE_INDEX ) {
+                continue;
+            }
             RotateImageView item = new RotateImageView(getContext());
             item.setImageResource(mDrawIds[i]);
             item.setBackgroundResource(R.drawable.bg_pressed);
