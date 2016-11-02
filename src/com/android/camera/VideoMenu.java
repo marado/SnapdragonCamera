@@ -64,7 +64,6 @@ public class VideoMenu extends MenuController
     private VideoUI mUI;
     private String[] mOtherKeys1;
     private String[] mOtherKeys2;
-
     private ListMenu mListMenu;
     private ListSubMenu mListSubMenu;
     private View mPreviewMenu;
@@ -106,7 +105,29 @@ public class VideoMenu extends MenuController
         mPreviewMenuStatus = POPUP_NONE;
         initFilterModeButton(mFilterModeSwitcher);
         // settings popup
-        mOtherKeys1 = new String[] {
+        if(CameraUtil.TARGET_SUPPORTS_WEARABLES) {
+            mOtherKeys1 = new String[] {
+                CameraSettings.KEY_VIDEOCAMERA_FLASH_MODE,
+                CameraSettings.KEY_VIDEO_QUALITY,
+                CameraSettings.KEY_VIDEO_DURATION,
+                CameraSettings.KEY_RECORD_LOCATION,
+                CameraSettings.KEY_CAMERA_SAVEPATH,
+                CameraSettings.KEY_WHITE_BALANCE
+            };
+            mOtherKeys2 = new String[] {
+                CameraSettings.KEY_VIDEOCAMERA_FLASH_MODE,
+                CameraSettings.KEY_VIDEO_QUALITY,
+                CameraSettings.KEY_VIDEO_DURATION,
+                CameraSettings.KEY_RECORD_LOCATION,
+                CameraSettings.KEY_CAMERA_SAVEPATH,
+                CameraSettings.KEY_WHITE_BALANCE,
+                CameraSettings.KEY_VIDEO_EFFECT,
+                CameraSettings.KEY_VIDEO_TIME_LAPSE_FRAME_INTERVAL,
+                CameraSettings.KEY_VIDEO_ENCODER,
+                CameraSettings.KEY_AUDIO_ENCODER
+            };
+        } else {
+            mOtherKeys1 = new String[] {
                 CameraSettings.KEY_VIDEOCAMERA_FLASH_MODE,
                 CameraSettings.KEY_VIDEO_QUALITY,
                 CameraSettings.KEY_VIDEO_DURATION,
@@ -114,8 +135,8 @@ public class VideoMenu extends MenuController
                 CameraSettings.KEY_CAMERA_SAVEPATH,
                 CameraSettings.KEY_WHITE_BALANCE,
                 CameraSettings.KEY_VIDEO_HIGH_FRAME_RATE
-        };
-        mOtherKeys2 = new String[] {
+            };
+            mOtherKeys2 = new String[] {
                 CameraSettings.KEY_VIDEOCAMERA_FLASH_MODE,
                 CameraSettings.KEY_VIDEO_QUALITY,
                 CameraSettings.KEY_VIDEO_DURATION,
@@ -134,7 +155,10 @@ public class VideoMenu extends MenuController
                 CameraSettings.KEY_VIDEO_ROTATION,
                 CameraSettings.KEY_VIDEO_CDS_MODE,
                 CameraSettings.KEY_VIDEO_TNR_MODE
-        };
+            };
+        }
+
+
         mFrontBackSwitcher.setVisibility(View.INVISIBLE);
         initSwitchItem(CameraSettings.KEY_CAMERA_ID, mFrontBackSwitcher);
     }

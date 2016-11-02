@@ -126,6 +126,8 @@ public class CameraUtil {
     public static final int RATIO_4_3 = 2;
     public static final int RATIO_3_2 = 3;
 
+    public static final boolean TARGET_SUPPORTS_WEARABLES = true;
+
     public static boolean isSupported(String value, List<String> supported) {
         return supported == null ? false : supported.indexOf(value) >= 0;
     }
