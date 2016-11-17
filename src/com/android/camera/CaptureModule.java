@@ -76,6 +76,7 @@ import android.widget.Toast;
 
 import com.android.camera.exif.ExifInterface;
 import com.android.camera.Exif;
+import com.android.camera.imageprocessor.filter.BlurbusterFilter;
 import com.android.camera.imageprocessor.filter.ChromaflashFilter;
 import com.android.camera.imageprocessor.filter.ImageFilter;
 import com.android.camera.imageprocessor.PostProcessor;
@@ -836,6 +837,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                                 }
                             } catch (CameraAccessException e) {
                                 e.printStackTrace();
+                            } catch(IllegalStateException e) {
+                                e.printStackTrace();
                             }
                         }
 
@@ -925,7 +928,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     public void setFlashModeToPreview(int id, boolean isFlashOn) {
         Log.d(TAG, "setFlashModeToPreview " + isFlashOn);
         if(isFlashOn) {
-            mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+            mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH);
             mPreviewRequestBuilder[id].set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE);
         } else {
             mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
@@ -999,8 +1002,6 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         mFocusStateListener = new FocusStateListener(mUI);
         mLocationManager = new LocationManager(mActivity, this);
-        Storage.setSaveSDCard(mSettingsManager.getValue(SettingsManager
-                .KEY_CAMERA_SAVEPATH).equals("1"));
     }
 
     /**
@@ -1507,6 +1508,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                 });
             }
             mControlAFMode = CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+            applyFlash(mPreviewRequestBuilder[id], id);
             applySettingsForUnlockExposure(mPreviewRequestBuilder[id], id);
             setAFModeToPreview(id, mControlAFMode);
             mTakingPicture[id] = false;
@@ -1553,6 +1555,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                         mCaptureSession[i].capture(mPreviewRequestBuilder[i].build(), null,
                                 mCameraHandler);
                     } catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    } catch (IllegalStateException e) {
                         e.printStackTrace();
                     }
                 }
@@ -1827,6 +1831,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mState[i] = STATE_PREVIEW;
         }
         mLongshotActive = false;
+        mZoomValue = 1.0f;
     }
 
     private ArrayList<Integer> getFrameProcFilterId() {
@@ -1860,6 +1865,8 @@ public class CaptureModule implements CameraModule, PhotoController,
             return PostProcessor.FILTER_SHARPSHOOTER;
         } else if (mode == SettingsManager.SCENE_MODE_CHROMAFLASH_INT && ChromaflashFilter.isSupportedStatic()) {
             return PostProcessor.FILTER_CHROMAFLASH;
+        } else if (mode == SettingsManager.SCENE_MODE_BLURBUSTER_INT && BlurbusterFilter.isSupportedStatic()) {
+            return PostProcessor.FILTER_BLURBUSTER;
         } else if (mode == SettingsManager.SCENE_MODE_UBIFOCUS_INT) {
             return PostProcessor.FILTER_UBIFOCUS;
         }// else if (mode == SettingsManager.SCENE_MODE_AUTO_INT && StillmoreFilter.isSupportedStatic()) {
@@ -1977,6 +1984,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mSound = new MediaActionSound();
         }
 
+        updateSaveStorageState();
         setDisplayOrientation();
         startBackgroundThread();
         openProcessors();
@@ -2046,11 +2054,46 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                if (CameraUtil.volumeKeyShutterDisable(mActivity)) {
+                    return false;
+                }
+            case KeyEvent.KEYCODE_FOCUS:
+                if (mFirstTimeInitialized) {
+                    if (event.getRepeatCount() == 0) {
+                        onShutterButtonFocus(true);
+                    }
+                    return true;
+                }
+                return false;
+            case KeyEvent.KEYCODE_CAMERA:
+                if (mFirstTimeInitialized && event.getRepeatCount() == 0) {
+                    onShutterButtonClick();
+                }
+                return true;
+        }
         return false;
     }
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+                if (mFirstTimeInitialized
+                        && !CameraUtil.volumeKeyShutterDisable(mActivity)) {
+                    onShutterButtonClick();
+                    return true;
+                }
+                return false;
+            case KeyEvent.KEYCODE_FOCUS:
+                if (mFirstTimeInitialized) {
+                    onShutterButtonFocus(false);
+                }
+                return true;
+        }
         return false;
     }
 
@@ -3055,6 +3098,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest
                 .CONTROL_AF_TRIGGER_IDLE);
         applyCommonSettings(mPreviewRequestBuilder[id], id);
+        applyFlash(mPreviewRequestBuilder[id], id);
     }
 
     public float getZoomValue() {
@@ -3105,10 +3149,6 @@ public class CaptureModule implements CameraModule, PhotoController,
             case SettingsManager.KEY_FACE_DETECTION:
                 updatePreview = true;
                 applyFaceDetection(mPreviewRequestBuilder[cameraId]);
-                break;
-            case SettingsManager.KEY_FLASH_MODE:
-                updatePreview = true;
-                applyFlash(mPreviewRequestBuilder[cameraId], cameraId);
                 break;
         }
         return updatePreview;
@@ -3718,5 +3758,10 @@ public class CaptureModule implements CameraModule, PhotoController,
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return bytes;
+    }
+
+    private void updateSaveStorageState() {
+        Storage.setSaveSDCard(mSettingsManager.getValue(SettingsManager
+                .KEY_CAMERA_SAVEPATH).equals("1"));
     }
 }
