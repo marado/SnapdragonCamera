@@ -2222,10 +2222,15 @@ public class PhotoModule
             mHandler.sendEmptyMessage(OPEN_CAMERA_FAIL);
             return;
         }
+
         mParameters = mCameraDevice.getParameters();
         mCameraPreviewParamsReady = true;
         mInitialParams = mParameters;
-        if (mFocusManager == null) initializeFocusManager();
+        if (mFocusManager == null) {
+            initializeFocusManager();
+        } else {
+            mFocusManager.setParameters(mInitialParams);
+        }
         initializeCapabilities();
         mHandler.sendEmptyMessageDelayed(CAMERA_OPEN_DONE,100);
         return;
