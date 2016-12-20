@@ -82,12 +82,23 @@
                 android:resource="@layout/keyguard_widget" />
         </activity>
 
+        <activity
+            android:name="com.android.camera.BlankMainActivity"
+            android:label="@string/crop_action"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
+            android:configChanges="keyboardHidden|orientation|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <activity-alias
             android:name="com.android.camera.CameraLauncher"
             android:icon="@mipmap/ic_launcher_camera"
             android:label="@string/snapcam_app_name"
             android:launchMode="singleTop"
-            android:targetActivity="com.android.camera.CameraActivity">
+            android:targetActivity="com.android.camera.BlankMainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
