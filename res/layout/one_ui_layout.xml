@@ -21,6 +21,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <com.android.camera.ui.ProMode
+        android:id="@+id/promode_slider"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content" />
+
     <com.android.camera.ui.FlashToggleButton
         android:id="@+id/flash_button"
         style="@style/OneUIMenuButton"
@@ -35,8 +40,8 @@
 
     <com.android.camera.ShutterButton
         android:id="@+id/shutter_button"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
+        android:layout_width="@dimen/one_ui_bottom_large"
+        android:layout_height="@dimen/one_ui_bottom_large"
         android:clickable="true"
         android:contentDescription="@string/accessibility_shutter_button"
         android:focusable="true"
@@ -45,13 +50,23 @@
 
     <com.android.camera.ui.RotateImageView
         android:id="@+id/video_button"
-        android:layout_width="55dp"
-        android:layout_height="55dp"
+        android:layout_width="@dimen/one_ui_bottom_small"
+        android:layout_height="@dimen/one_ui_bottom_small"
         android:clickable="true"
         android:contentDescription="@string/accessibility_shutter_button"
         android:focusable="true"
         android:scaleType="fitCenter"
         android:src="@drawable/video_capture" />
+
+    <com.android.camera.PauseButton
+        android:id="@+id/video_pause"
+        android:layout_width="@dimen/one_ui_bottom_small"
+        android:layout_height="@dimen/one_ui_bottom_small"
+        android:focusable="true"
+        android:clickable="true"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        android:src="@drawable/btn_pause_recording"/>
 
     <com.android.camera.ui.RotateImageView
         android:id="@+id/preview_thumb"
@@ -91,42 +106,53 @@
         android:id="@+id/makeup_seekbar_layout"
         android:visibility="gone">
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:paddingLeft="5dp"
-            android:paddingRight="5dp"
+            android:layout_width="12dp"
+            android:layout_height="20dp"
+            android:layout_marginLeft="23dp"
+            android:layout_marginRight="23dp"
             android:id="@+id/seekbar_toggle">
         </ImageView>
         <RelativeLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:id="@+id/seekbar_body">
             <com.android.camera.ui.RotateLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_alignParentLeft="true"
                 android:id="@+id/makeup_low_text">
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/makeup_seekbar_low">
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:text="@string/makeup_seekbar_low"
+                    android:textColor="@android:color/white">
                 </TextView>
             </com.android.camera.ui.RotateLayout>
             <SeekBar
-                    android:layout_width="match_parent"
+                    android:layout_width="220dp"
                     android:layout_height="wrap_content"
-                    android:paddingLeft="100dp"
-                    android:paddingRight="100dp"
+                    android:maxHeight="3dip"
+                    android:minHeight="1dip"
+                    android:layout_marginLeft="10dp"
+                    android:layout_toRightOf="@+id/makeup_low_text"
+                    android:progressDrawable="@drawable/beautify_progressbar_style"
+                    android:thumb="@drawable/ic_beautify_oval"
                     android:id="@+id/makeup_seekbar"/>
             <com.android.camera.ui.RotateLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_toRightOf="@+id/makeup_seekbar"
+                android:layout_marginLeft="10dp"
                 android:id="@+id/makeup_high_text">
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/makeup_seekbar_high">
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:textSize="12sp"
+                    android:gravity="center"
+                    android:text="@string/makeup_seekbar_high"
+                    android:textColor="@android:color/white">
                 </TextView>
             </com.android.camera.ui.RotateLayout>
         </RelativeLayout>
@@ -156,4 +182,11 @@
             android:visibility="gone" />
     </LinearLayout>
 
+    <include layout="@layout/pro_mode_layout" />
+
+    <ImageView
+        android:id="@+id/promode_close_button"
+        android:layout_height="20dp"
+        android:layout_width="20dp"
+        android:src="@drawable/icon_x" />
 </com.android.camera.ui.OneUICameraControls>

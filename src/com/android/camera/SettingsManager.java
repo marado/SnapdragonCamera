@@ -86,15 +86,17 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public static final int SCENE_MODE_NIGHT_INT = 5;
 
     // Custom-Scenemodes start from 100
-    public static final int SCENE_MODE_DUAL_INT = 100;
-    public static final int SCENE_MODE_OPTIZOOM_INT = 101;
-    public static final int SCENE_MODE_UBIFOCUS_INT = 102;
-    public static final int SCENE_MODE_BESTPICTURE_INT = 103;
-    public static final int SCENE_MODE_PANORAMA_INT = 104;
-    public static final int SCENE_MODE_CHROMAFLASH_INT = 105;
-    public static final int SCENE_MODE_BLURBUSTER_INT = 106;
-    public static final int SCENE_MODE_SHARPSHOOTER_INT = 107;
-    public static final int SCENE_MODE_TRACKINGFOCUS_INT = 108;
+    public static final int SCENE_MODE_CUSTOM_START = 100;
+    public static final int SCENE_MODE_DUAL_INT = SCENE_MODE_CUSTOM_START;
+    public static final int SCENE_MODE_OPTIZOOM_INT = SCENE_MODE_CUSTOM_START + 1;
+    public static final int SCENE_MODE_UBIFOCUS_INT = SCENE_MODE_CUSTOM_START + 2;
+    public static final int SCENE_MODE_BESTPICTURE_INT = SCENE_MODE_CUSTOM_START + 3;
+    public static final int SCENE_MODE_PANORAMA_INT = SCENE_MODE_CUSTOM_START + 4;
+    public static final int SCENE_MODE_CHROMAFLASH_INT = SCENE_MODE_CUSTOM_START + 5;
+    public static final int SCENE_MODE_BLURBUSTER_INT = SCENE_MODE_CUSTOM_START + 6;
+    public static final int SCENE_MODE_SHARPSHOOTER_INT = SCENE_MODE_CUSTOM_START + 7;
+    public static final int SCENE_MODE_TRACKINGFOCUS_INT = SCENE_MODE_CUSTOM_START + 8;
+    public static final int SCENE_MODE_PROMODE_INT = SCENE_MODE_CUSTOM_START + 9;
     public static final String SCENE_MODE_DUAL_STRING = "100";
     public static final String KEY_CAMERA_SAVEPATH = "pref_camera2_savepath_key";
     public static final String KEY_RECORD_LOCATION = "pref_camera2_recordlocation_key";
@@ -110,6 +112,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public static final String KEY_FILTER_MODE = "pref_camera2_filter_mode_key";
     public static final String KEY_COLOR_EFFECT = "pref_camera2_coloreffect_key";
     public static final String KEY_SCENE_MODE = "pref_camera2_scenemode_key";
+    public static final String KEY_SCEND_MODE_INSTRUCTIONAL = "pref_camera2_scenemode_instructional";
     public static final String KEY_REDEYE_REDUCTION = "pref_camera2_redeyereduction_key";
     public static final String KEY_CAMERA_ID = "pref_camera2_id_key";
     public static final String KEY_PICTURE_SIZE = "pref_camera2_picturesize_key";
@@ -134,6 +137,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public static final String KEY_SHUTTER_SOUND = "pref_camera2_shutter_sound_key";
     public static final String KEY_DEVELOPER_MENU = "pref_camera2_developer_menu_key";
     public static final String KEY_RESTORE_DEFAULT = "pref_camera2_restore_default_key";
+    public static final String KEY_FOCUS_DISTANCE = "pref_camera2_focus_distance_key";
     private static final String TAG = "SnapCam_SettingsManager";
 
     private static SettingsManager sInstance;
@@ -419,10 +423,18 @@ public class SettingsManager implements ListMenu.SettingsListener {
         mListeners.add(listener);
     }
 
+    public void unregisterListener(Listener listener) {
+        mListeners.remove(listener);
+    }
+
     private void notifyListeners(List<SettingState> changes) {
         for (Listener listener : mListeners) {
             listener.onSettingsChanged(changes);
         }
+    }
+
+    public int getCurrentCameraId() {
+        return mCameraId;
     }
 
     public String getValue(String key) {
@@ -437,6 +449,28 @@ public class SettingsManager implements ListMenu.SettingsListener {
         String value = getValue(key);
         if ((value == null) || (pref == null)) return -1;
         return pref.findIndexOfValue(value);
+    }
+
+    private boolean setFocusValue(String key, float value) {
+        boolean result = false;
+        String prefName = ComboPreferences.getLocalSharedPreferencesName(mContext, mCameraId);
+        SharedPreferences sharedPreferences = mContext.getSharedPreferences(prefName,
+                Context.MODE_PRIVATE);
+        float prefValue = sharedPreferences.getFloat(key, 0.5f);
+        if (prefValue != value) {
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putFloat(key, value);
+            editor.apply();
+            result = true;
+        }
+        return result;
+    }
+
+    public float getFocusValue(String key) {
+        String prefName = ComboPreferences.getLocalSharedPreferencesName(mContext, mCameraId);
+        SharedPreferences sharedPreferences = mContext.getSharedPreferences(prefName,
+                Context.MODE_PRIVATE);
+        return sharedPreferences.getFloat(key, 0.5f);
     }
 
     public boolean isOverriden(String key) {
@@ -464,6 +498,17 @@ public class SettingsManager implements ListMenu.SettingsListener {
         if (pref != null) {
             pref.setValueIndex(index);
             updateMapAndNotify(pref);
+        }
+    }
+
+    public void setFocusDistance(String key, float value, float minFocus) {
+        boolean isSuccess = setFocusValue(key, value);
+        if (isSuccess) {
+            List<SettingState> list = new ArrayList<>();
+            Values values = new Values("" + value * minFocus, null);
+            SettingState ss = new SettingState(KEY_FOCUS_DISTANCE, values);
+            list.add(ss);
+            notifyListeners(list);
         }
     }
 
@@ -521,6 +566,9 @@ public class SettingsManager implements ListMenu.SettingsListener {
         ListPreference flashMode = mPreferenceGroup.findPreference(KEY_FLASH_MODE);
         ListPreference colorEffect = mPreferenceGroup.findPreference(KEY_COLOR_EFFECT);
         ListPreference sceneMode = mPreferenceGroup.findPreference(KEY_SCENE_MODE);
+        ListPreference sceneModeInstructional =
+                mPreferenceGroup.findPreference(KEY_SCEND_MODE_INSTRUCTIONAL);
+
         ListPreference cameraIdPref = mPreferenceGroup.findPreference(KEY_CAMERA_ID);
         ListPreference pictureSize = mPreferenceGroup.findPreference(KEY_PICTURE_SIZE);
         ListPreference exposure = mPreferenceGroup.findPreference(KEY_EXPOSURE);
@@ -557,6 +605,13 @@ public class SettingsManager implements ListMenu.SettingsListener {
         if (sceneMode != null) {
             if (filterUnsupportedOptions(sceneMode, getSupportedSceneModes(cameraId))) {
                 mFilteredKeys.add(sceneMode.getKey());
+            }
+        }
+
+        if ( sceneModeInstructional != null ) {
+            if (filterUnsupportedOptions(sceneModeInstructional,
+                    getSupportedSceneModes(cameraId)) ){
+                mFilteredKeys.add(sceneModeInstructional.getKey());
             }
         }
 
@@ -996,6 +1051,11 @@ public class SettingsManager implements ListMenu.SettingsListener {
         return modes;
     }
 
+    public float getMinimumFocusDistance(int cameraId) {
+        return mCharacteristics.get(cameraId)
+                .get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+    }
+
     private List<String> getSupportedWhiteBalanceModes(int cameraId) {
         int[] whiteBalanceModes = mCharacteristics.get(cameraId).get(CameraCharacteristics
                 .CONTROL_AWB_AVAILABLE_MODES);
@@ -1020,6 +1080,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         if (BlurbusterFilter.isSupportedStatic()) modes.add(SCENE_MODE_BLURBUSTER_INT + "");
         if (SharpshooterFilter.isSupportedStatic()) modes.add(SCENE_MODE_SHARPSHOOTER_INT + "");
         if (TrackingFocusFrameListener.isSupportedStatic()) modes.add(SCENE_MODE_TRACKINGFOCUS_INT + "");
+        modes.add("" + SCENE_MODE_PROMODE_INT);
         for (int mode : sceneModes) {
             modes.add("" + mode);
         }

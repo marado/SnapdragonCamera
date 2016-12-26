@@ -629,7 +629,7 @@ public class PhotoModule
     private void locationFirstRun() {
         /* Do not prompt if the preference is already set, this is a secure
          * camera session, or the prompt has already been triggered. */
-        if (RecordLocationPreference.isSet(mPreferences) ||
+        if (RecordLocationPreference.isSet(mPreferences, CameraSettings.KEY_RECORD_LOCATION) ||
                 mActivity.isSecureCamera() || mLocationPromptTriggered) {
             return;
         }
@@ -912,7 +912,8 @@ public class PhotoModule
         }
 
         // Initialize location service.
-        boolean recordLocation = RecordLocationPreference.get(mPreferences);
+        boolean recordLocation = RecordLocationPreference.get(mPreferences,
+                CameraSettings.KEY_RECORD_LOCATION);
         mLocationManager.recordLocation(recordLocation);
 
         mUI.initializeFirstTime();
@@ -943,7 +944,8 @@ public class PhotoModule
     // onResume.
     private void initializeSecondTime() {
         // Start location update if needed.
-        boolean recordLocation = RecordLocationPreference.get(mPreferences);
+        boolean recordLocation = RecordLocationPreference.get(mPreferences,
+                CameraSettings.KEY_RECORD_LOCATION);
         mLocationManager.recordLocation(recordLocation);
         MediaSaveService s = mActivity.getMediaSaveService();
         if (s != null) {
@@ -2360,7 +2362,7 @@ public class PhotoModule
             String zsl = mPreferences.getString(CameraSettings.KEY_ZSL,
                     mActivity.getString(R.string.pref_camera_zsl_default));
             mUI.overrideSettings(CameraSettings.KEY_ZSL, zsl);
-            mUI.startCountDown(seconds, isShutterSoundOn());
+            mUI.startCountDown(seconds, playSound);
         } else {
             mSnapshotOnIdle = false;
             initiateSnap();
@@ -2518,7 +2520,7 @@ public class PhotoModule
 
     private void updateRemainingPhotos() {
         if (mJpegFileSizeEstimation != 0) {
-            mRemainingPhotos = (int) 
+            mRemainingPhotos = (int)
                     ((mActivity.getStorageSpaceBytes() - Storage.LOW_STORAGE_THRESHOLD_BYTES)
                     / mJpegFileSizeEstimation);
         } else {
@@ -2971,7 +2973,7 @@ public class PhotoModule
         if (!mSnapshotOnIdle && !mInstantCaptureSnapShot) {
             // If the focus mode is continuous autofocus, call cancelAutoFocus to
             // resume it because it may have been paused by autoFocus call.
-            if (CameraUtil.FOCUS_MODE_CONTINUOUS_PICTURE.equals(mFocusManager.getFocusMode())) {
+            if (CameraUtil.FOCUS_MODE_CONTINUOUS_PICTURE.equals(mFocusManager.getFocusMode()) && mCameraState !=INIT) {
                 mCameraDevice.cancelAutoFocus();
             }
         } else {
@@ -4673,7 +4675,8 @@ public class PhotoModule
         // ignore the events after "onPause()"
         if (mPaused) return;
 
-        boolean recordLocation = RecordLocationPreference.get(mPreferences);
+        boolean recordLocation = RecordLocationPreference.get(mPreferences,
+                CameraSettings.KEY_RECORD_LOCATION);
         mLocationManager.recordLocation(recordLocation);
         if(needRestart()){
             Log.v(TAG, "Restarting Preview... Camera Mode Changed");
@@ -4965,7 +4968,7 @@ public class PhotoModule
     public void onErrorListener(int error) {
         enableRecordingLocation(false);
     }
-    
+
 }
 
 /* Below is no longer needed, except to get rid of compile error
