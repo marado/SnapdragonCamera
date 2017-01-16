@@ -1050,6 +1050,14 @@
     <string name="pref_camera2_timer_value_2sec" translatable="false">2</string>
     <string name="pref_camera2_timer_value_5sec" translatable="false">5</string>
     <string name="pref_camera2_timer_value_10sec" translatable="false">10</string>
+    <string name="pref_camera2_saveraw_default">disable</string>
+    <string name="pref_camera2_saveraw_title">Save with RAW format</string>
+    <string name="pref_camera2_saveraw_value_disable" translatable="false">disable</string>
+    <string name="pref_camera2_saveraw_value_enable" translatable="false">enable</string>
+
+    <string name="pref_camera2_saveraw_entry_disable">disable</string>
+    <string name="pref_camera2_saveraw_entry_enable">enable</string>
+
     <string name="panocapture_direction_is_not_determined" translatable="true">Move constantly in one direciton.</string>
     <string name="panocapture_intro" translatable="true">Press camera button to start.</string>
     <string name="panocapture_direction_is_changed" translatable="true">Direction is changed. Stopping now...</string>
@@ -1063,5 +1071,64 @@
     <string name="perf_camera2_preferences_category_photo" translatable="true">Still camera</string>
     <string name="perf_camera2_preferences_category_video" translatable="true">Video camera</string>
     <string name="perf_camera2_preferences_category_system" translatable="true">System</string>
+
+    <string name="pref_camera2_scene_mode_dual_camera_instructional_content" translatable="true">In dual camera mode, your pictures will be clearer. You can also apply background effects, by editing your dual camera pictures in the Gallery.</string>
+    <string name="pref_camera2_scene_mode_ubi_focus_instructional_content"  translatable="true">With UbiFocus, your camera will take five pictures and combine them into one picture,where everything is in focus. You can choose to re-focus, after you take the picture.</string>
+    <string name="pref_camera2_scene_mode_opti_zoom_instructional_content"  translatable="true">Use Optizoom when you want to zoom in for a clear picture.You can zoom before, or after taking the picture.</string>
+    <string name="pref_camera2_scene_mode_sports_instructional_content"  translatable="true">Sports mode helps you take better sports or action shots.\n\nImporves your photos, but has no effect on video recording.</string>
+    <string name="pref_camera2_scene_mode_hdr_instructional_content"  translatable="true">When you are in mixed lighting conditions such as low light and backlit scenes select "HDR" for best possible pictures.</string>
+    <string name="pref_camera2_scene_mode_best_photo_instructional_content"  translatable="true">Allows you to take a burst of 10 photos, and you can choose the best one(s).</string>
+    <string name="pref_camera2_scene_mode_chroma_flash_instructional_content"  translatable="true">With ChromaFlash, the lighting in your flash photos will be optimized for all of the people and objects in your pictures.This feature applies only to the back camera.</string>
+    <string name="pref_camera2_scene_mode_sharp_photo_instructional_content"  translatable="true">Sharp Phot reduces blur that is due to motion in the scene, or due to hand motion.</string>
+    <string name="pref_camera2_scene_mode_tracking_focus_instructional_content"  translatable="true">Allows you to track and focus a selected person or object while taking pictures or videos. To start, position the focus rectangle on a person or object you want to track.</string>
+    <string name="pref_camera2_scene_mode_time_lapse_instructional_content"  translatable="true">With Time Lapse, you can transform a long video recording into a few seconds of video.This effect applies to videos, but not photos.</string>
+    <string name="pref_camera2_scene_mode_panorama_instructional_content"  translatable="true">Allows you to pan left or right to take a wide landscape photo. You can alse pan up or down to take tall photos.</string>
+    <string name="pref_camera2_scene_mode_blur_buster_instructional_content"  translatable="true">BlurBuster reduces blur from shaky hands.It can be helpful when taking photos in difficult places.</string>
+    <string name="pref_camera2_scene_mode_pro_instructional_content"  translatable="true">With Pro Mode, you can manually control settings for ISO,Exposure, White Balance, and Focus. You will have easy access to all of these advanced settings</string>
+
+    <string name="pref_camera2_not_show_again">Do not show again</string>
+    <string name="pref_camera2_scene_mode_instructional_ok" translatable="true">OK</string>
+
+    <string name="pref_camera2_instant_aec_title" translatable="true">Instant AEC</string>
+    <string name="pref_camera2_instant_aec_default" translatable="false">0</string>
+    <string name="pref_camera2_instant_aec_entry_disable" translatable="true">Disable</string>
+    <string name="pref_camera2_instant_aec_entry_aggressive" translatable="true">Aggressive AEC</string>
+    <string name="pref_camera2_instant_aec_entry_fast" translatable="true">Fast AEC</string>
+
+    <string name="pref_camera2_saturation_level_title" translatable="true">Saturation Level</string>
+    <string name="pref_camera2_saturation_level_default" translatable="false">5</string>
+    <string name="pref_camera2_saturation_level_entry_0" translatable="true">Level 0</string>
+    <string name="pref_camera2_saturation_level_entry_1" translatable="true">Level 1</string>
+    <string name="pref_camera2_saturation_level_entry_2" translatable="true">Level 2</string>
+    <string name="pref_camera2_saturation_level_entry_3" translatable="true">Level 3</string>
+    <string name="pref_camera2_saturation_level_entry_4" translatable="true">Level 4</string>
+    <string name="pref_camera2_saturation_level_entry_5" translatable="true">Level 5(Default)</string>
+    <string name="pref_camera2_saturation_level_entry_6" translatable="true">Level 6</string>
+    <string name="pref_camera2_saturation_level_entry_7" translatable="true">Level 7</string>
+    <string name="pref_camera2_saturation_level_entry_8" translatable="true">Level 8</string>
+    <string name="pref_camera2_saturation_level_entry_9" translatable="true">Level 9</string>
+    <string name="pref_camera2_saturation_level_entry_10" translatable="true">Level 10</string>
+
+    <string name="pref_camera2_anti_banding_level_title" translatable="true">Anti Banding Level</string>
+    <string name="pref_camera2_anti_banding_level_default" translatable="false">0</string>
+    <string name="pref_camera2_anti_banding_level_entry_off" translatable="true">Off</string>
+    <string name="pref_camera2_anti_banding_level_entry_50hz" translatable="true">50HZ</string>
+    <string name="pref_camera2_anti_banding_level_entry_60hz" translatable="true">60HZ</string>
+    <string name="pref_camera2_anti_banding_level_entry_auto" translatable="true">Auto</string>
+
+    <string name="pref_camera2_histogram_title" translatable="true">Histogram</string>
+    <string name="pref_camera2_histogram_default" translatable="false">disable</string>
+    <string name="pref_camera2_histogram_entry_enable" translatable="true">Enable</string>
+    <string name="pref_camera2_histogram_entry_disable" translatable="true">Disable</string>
+
+    <string name="pref_camera2_hdr_title" translatable="true">HDR &amp; Non-HDR</string>
+    <string name="pref_camera2_hdr_default" translatable="false">disable</string>
+    <string name="pref_camera2_hdr_entry_enable" translatable="true">Enable</string>
+    <string name="pref_camera2_hdr_entry_disable" translatable="true">Disable</string>
+
+    <string name="pref_camera2_auto_hdr_title" translatable="true">AUTO HDR</string>
+    <string name="pref_camera2_auto_hdr_default" translatable="false">disable</string>
+    <string name="pref_camera2_auto_hdr_entry_enable" translatable="true">Enable</string>
+    <string name="pref_camera2_auto_hdr_entry_disable" translatable="true">Disable</string>
 </resources>
 

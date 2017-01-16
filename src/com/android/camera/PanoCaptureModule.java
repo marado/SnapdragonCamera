@@ -271,10 +271,12 @@ public class PanoCaptureModule implements CameraModule, PhotoController {
         mCameraOpened = false;
         mSurfaceReady = false;
         mActivity = activity;
-
+        SettingsManager settingsManager = SettingsManager.getInstance();
+        settingsManager.init();
         mUI = new PanoCaptureUI(activity, this, parent);
         mContentResolver = mActivity.getContentResolver();
         mLocationManager = new LocationManager(mActivity, null);
+
     }
 
     public void changePanoStatus(boolean newStatus, boolean isCancelling) {
@@ -453,6 +455,11 @@ public class PanoCaptureModule implements CameraModule, PhotoController {
 
     @Override
     public void onStop() {
+
+    }
+
+    @Override
+    public void onDestroy() {
 
     }
 
