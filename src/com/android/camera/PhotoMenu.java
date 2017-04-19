@@ -174,8 +174,6 @@ public class PhotoMenu extends MenuController
                 CameraSettings.KEY_PICTURE_SIZE,
                 CameraSettings.KEY_TIMER,
                 CameraSettings.KEY_CAMERA_SAVEPATH,
-                CameraSettings.KEY_EXPOSURE,
-                CameraSettings.KEY_WHITE_BALANCE,
                 CameraSettings.KEY_FOCUS_MODE,
                 CameraSettings.KEY_ZSL
             };
@@ -185,8 +183,6 @@ public class PhotoMenu extends MenuController
                 CameraSettings.KEY_PICTURE_SIZE,
                 CameraSettings.KEY_TIMER,
                 CameraSettings.KEY_CAMERA_SAVEPATH,
-                CameraSettings.KEY_EXPOSURE,
-                CameraSettings.KEY_WHITE_BALANCE,
                 CameraSettings.KEY_FOCUS_MODE,
                 CameraSettings.KEY_ZSL
             };

@@ -111,8 +111,7 @@ public class VideoMenu extends MenuController
                 CameraSettings.KEY_VIDEO_QUALITY,
                 CameraSettings.KEY_VIDEO_DURATION,
                 CameraSettings.KEY_RECORD_LOCATION,
-                CameraSettings.KEY_CAMERA_SAVEPATH,
-                CameraSettings.KEY_WHITE_BALANCE
+                CameraSettings.KEY_CAMERA_SAVEPATH
             };
             mOtherKeys2 = new String[] {
                 CameraSettings.KEY_VIDEOCAMERA_FLASH_MODE,
@@ -120,7 +119,6 @@ public class VideoMenu extends MenuController
                 CameraSettings.KEY_VIDEO_DURATION,
                 CameraSettings.KEY_RECORD_LOCATION,
                 CameraSettings.KEY_CAMERA_SAVEPATH,
-                CameraSettings.KEY_WHITE_BALANCE,
                 CameraSettings.KEY_VIDEO_EFFECT,
                 CameraSettings.KEY_VIDEO_TIME_LAPSE_FRAME_INTERVAL,
                 CameraSettings.KEY_VIDEO_ENCODER,
