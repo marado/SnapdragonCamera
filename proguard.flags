@@ -3,6 +3,7 @@
 #Avoid the library class dependency error
 -dontwarn android.view.inputmethod.InputMethodManager
 -dontwarn android.content.res.Resources
+-dontwarn com.android.internal.widget.ViewInfoStore$InfoRecord
 
 # ctors of subclasses of CameraPreference are called with Java reflection.
 -keep class * extends com.android.camera.CameraPreference {
@@ -44,4 +45,3 @@
 -keepclassmembers class com.android.gallery3d.exif.Util {
   *** closeSilently(...);
 }
-
