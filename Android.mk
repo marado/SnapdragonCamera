@@ -27,6 +27,7 @@ LOCAL_AAPT_FLAGS := \
 LOCAL_PACKAGE_NAME := SnapdragonCamera
 
 #LOCAL_SDK_VERSION := current
+LOCAL_JACK_ENABLED := disabled
 
 LOCAL_OVERRIDES_PACKAGES := Camera2
 
