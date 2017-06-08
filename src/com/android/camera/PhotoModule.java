@@ -26,6 +26,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
@@ -1257,6 +1258,7 @@ public class PhotoModule
             implements CameraPictureCallback {
         Location location;
 
+
         BokehPictureCallback(Location loc) {
             location = loc;
         }
@@ -1293,6 +1295,13 @@ public class PhotoModule
                         new SnapshotBokehProcessor.YuvImageSize(
                                 auxSize.width,auxSize.height,
                                 new int[] {auxStirde, auxStirde}, auxScanline);
+                List<Object> areas = mFocusManager.getFocusAreas();
+                if (areas != null) {
+                    Camera.Area current = (Camera.Area)areas.get(0);
+                    if (current != null) {
+                        priYuvSize.setFocus(current.rect);
+                    }
+                }
                 success = mBokeProcessor.createTask(pri,aux,
                         mPriMetaData,mAuxMetaData, name,priYuvSize,auxYuvSize,
                         location,mJpegRotation);
@@ -1458,8 +1467,7 @@ public class PhotoModule
                     && !mPreviewRestartSupport
                     && (mCameraState != LONGSHOT)
                     && (mSnapshotMode != CameraInfo.CAMERA_SUPPORT_MODE_ZSL)
-                    && (mReceivedSnapNum == mBurstSnapNum)
-                    && (!AndroidCameraManagerImpl.isDualCameraMode());
+                    && (mReceivedSnapNum == mBurstSnapNum);
             if (needRestartPreview) {
                 setupPreview();
                 if (CameraUtil.FOCUS_MODE_CONTINUOUS_PICTURE.equals(
@@ -3258,6 +3266,7 @@ public class PhotoModule
 
         if (Parameters.SCENE_MODE_AUTO.equals(mSceneMode) ||
             CameraUtil.SCENE_MODE_HDR.equals(mSceneMode) ||
+                CameraSettings.KEY_SCENE_MODE_SNAPSHOT_BOKEH.equals(mSceneMode) ||
             optizoomOn.equals(mSceneMode)) {
             // Set Touch AF/AEC parameter.
             String touchAfAec = mPreferences.getString(
