@@ -195,7 +195,7 @@ public class PhotoModule
     private boolean mMeteringAreaSupported;
     private boolean mAeLockSupported;
     private boolean mAwbLockSupported;
-    private boolean mContinuousFocusSupported;
+    private boolean mContinuousFocusSupported = false;
     private boolean mTouchAfAecFlag;
     private boolean mLongshotSave = false;
     private boolean mRefocus = false;
@@ -1853,7 +1853,7 @@ public class PhotoModule
         }
         /* Disable focus if aebracket is ON */
         String aeBracket = mParameters.get(CameraSettings.KEY_QC_AE_BRACKETING);
-        if (!aeBracket.equalsIgnoreCase("off")) {
+        if (aeBracket != null && !aeBracket.equalsIgnoreCase("off")) {
             String fMode = Parameters.FLASH_MODE_OFF;
             mUI.overrideSettings(CameraSettings.KEY_FLASH_MODE, fMode);
             mParameters.setFlashMode(fMode);
