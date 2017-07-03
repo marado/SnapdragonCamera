@@ -1477,7 +1477,8 @@ public class PhotoModule
             Log.v(TAG, "mPictureDisplayedToJpegCallbackTime = "
                     + mPictureDisplayedToJpegCallbackTime + "ms");
 
-            if (AndroidCameraManagerImpl.isDualCameraMode() && mBokeProcessor != null) {
+            if (AndroidCameraManagerImpl.isDualCameraMode() && mCameraDevice.getAuxCamera() != null
+                    && mBokeProcessor != null) {
                 mBokeProcessor.setJpegForTask(mCaptureStartTime,jpegData);
             }
 
