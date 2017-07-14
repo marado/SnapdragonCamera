@@ -74,6 +74,7 @@ import org.codeaurora.snapcam.R;
 import com.android.camera.PhotoModule;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
@@ -2945,6 +2946,11 @@ public class VideoModule implements CameraModule,
             mSnapshotInProgress = false;
             showVideoSnapshotUI(false);
             storeImage(jpegData, mLocation);
+        }
+
+        @Override
+        public void onDualCameraPictureTaken(ByteBuffer pri, ByteBuffer aux, CameraProxy camera){
+
         }
     }
 
