@@ -35,6 +35,7 @@ import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.Face;
+import android.hardware.camera2.CameraDevice;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -55,6 +56,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.camera.CameraPreference.OnPreferenceChangedListener;
@@ -161,6 +163,8 @@ public class PhotoUI implements PieListener,
 
     private int mOrientation;
     private float mScreenBrightness = 0.0f;
+    private Face mCurrentFace;
+    private TextView mDistanceTip;
 
     public enum SURFACE_STATUS {
         HIDE,
@@ -242,28 +246,29 @@ public class PhotoUI implements PieListener,
         // display the view
         mSurfaceView = (SurfaceView) mRootView.findViewById(R.id.mdp_preview_content);
         mSurfaceView.setVisibility(View.VISIBLE);
-        if (AndroidCameraManagerImpl.isDualCameraMode()) {
-            mAuxSurfaceView = (SurfaceView) mRootView.findViewById(R.id.mdp_preview_content_aux);
-            mAuxSurfaceView.setVisibility(View.VISIBLE);
-            mAuxSurfaceHolder = mAuxSurfaceView.getHolder();
-            mAuxSurfaceHolder.addCallback(new SurfaceHolder.Callback() {
-                @Override
-                public void surfaceCreated(SurfaceHolder holder) {
-                    mAuxSurfaceHolder = holder;
-                }
 
-                @Override
-                public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        mDistanceTip = (TextView) mRootView.findViewById(R.id.bokeh_distance_tip);
+        mAuxSurfaceView = (SurfaceView) mRootView.findViewById(R.id.mdp_preview_content_aux);
+        mAuxSurfaceView.setVisibility(View.VISIBLE);
+        mAuxSurfaceHolder = mAuxSurfaceView.getHolder();
+        mAuxSurfaceHolder.addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+                mAuxSurfaceHolder = holder;
+                Log.d(TAG,"mAuxSurfaceHolder created");
+            }
 
-                }
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 
-                @Override
-                public void surfaceDestroyed(SurfaceHolder holder) {
-                    mAuxSurfaceHolder = null;
-                }
-            });
-            mAuxSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        }
+            }
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder holder) {
+                mAuxSurfaceHolder = null;
+            }
+        });
+        mAuxSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         mSurfaceHolder = mSurfaceView.getHolder();
         mSurfaceHolder.addCallback(this);
         mSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
@@ -715,6 +720,12 @@ public class PhotoUI implements PieListener,
     public void initializeZoom(Camera.Parameters params) {
         if ((params == null) || !params.isZoomSupported()
                 || (mZoomRenderer == null)) return;
+        if (AndroidCameraManagerImpl.isDualCameraMode()) {
+            PhotoModule module = (PhotoModule)mActivity.getCurrentModule();
+            if (module != null && module.getCamera() != null &&
+                    module.getCamera().getAuxCamera() != null)
+                return;
+        }
         mZoomMax = params.getMaxZoom();
         mZoomRatios = params.getZoomRatios();
         // Currently we use immediate zoom for fast zooming to get better UX and
@@ -1343,6 +1354,9 @@ public class PhotoUI implements PieListener,
     @Override
     public void onFaceDetection(Face[] faces, CameraManager.CameraProxy camera) {
         mFaceView.setFaces(faces);
+        if (faces != null && faces.length > 0) {
+            mCurrentFace = faces[0];
+        }
     }
 
     @Override
@@ -1350,6 +1364,10 @@ public class PhotoUI implements PieListener,
         Log.d(TAG, "Device flip detected.");
         mCameraControls.checkLayoutFlip();
         mController.updateCameraOrientation();
+    }
+
+    public Face getCurrentFace() {
+        return mCurrentFace;
     }
 
     public void setPreference(String key, String value) {
@@ -1437,6 +1455,18 @@ public class PhotoUI implements PieListener,
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean(CameraSettings.KEY_SHOW_MENU_HELP, true);
             editor.apply();
+        }
+    }
+
+    public void showDistanceTip(String tip) {
+        if (mDistanceTip != null) {
+            if (tip != null) {
+                mDistanceTip.setText(tip);
+                mDistanceTip.setVisibility(View.VISIBLE);
+            } else {
+                mDistanceTip.setText("");
+                mDistanceTip.setVisibility(View.GONE);
+            }
         }
     }
 
