@@ -81,6 +81,7 @@ import com.android.camera.ui.RotateTextToast;
 import com.android.camera.ui.SelfieFlashView;
 import com.android.camera.ui.ZoomRenderer;
 import com.android.camera.util.CameraUtil;
+import android.os.SystemProperties;
 
 public class PhotoUI implements PieListener,
         PreviewGestures.SingleTapListener,
@@ -90,6 +91,9 @@ public class PhotoUI implements PieListener,
         CameraManager.CameraFaceDetectionCallback {
 
     private static final String TAG = "CAM_UI";
+    private static final String FILP_PREVIEW ="persist.snapcam.flip_pre";
+    private static final boolean sFlipPreview =
+            SystemProperties.getBoolean(FILP_PREVIEW,false);
     private int mDownSampleFactor = 4;
     private final AnimationManager mAnimationManager;
     private CameraActivity mActivity;
@@ -164,7 +168,6 @@ public class PhotoUI implements PieListener,
     private int mOrientation;
     private float mScreenBrightness = 0.0f;
     private Face mCurrentFace;
-    private TextView mDistanceTip;
 
     public enum SURFACE_STATUS {
         HIDE,
@@ -247,7 +250,6 @@ public class PhotoUI implements PieListener,
         mSurfaceView = (SurfaceView) mRootView.findViewById(R.id.mdp_preview_content);
         mSurfaceView.setVisibility(View.VISIBLE);
 
-        mDistanceTip = (TextView) mRootView.findViewById(R.id.bokeh_distance_tip);
         mAuxSurfaceView = (SurfaceView) mRootView.findViewById(R.id.mdp_preview_content_aux);
         mAuxSurfaceView.setVisibility(View.VISIBLE);
         mAuxSurfaceHolder = mAuxSurfaceView.getHolder();
@@ -484,6 +486,13 @@ public class PhotoUI implements PieListener,
                 Log.d(TAG, "mSurfaceTextureUncroppedWidth=" + mSurfaceTextureUncroppedWidth
                         + "mSurfaceTextureUncroppedHeight=" + mSurfaceTextureUncroppedHeight);
             }
+        }
+
+        if (sFlipPreview) {
+            int tmp = lp.width;
+            lp.width = lp.height;
+            lp.height = tmp;
+            lp.gravity = Gravity.CENTER_VERTICAL;
         }
 
         mSurfaceView.setLayoutParams(lp);
@@ -1455,18 +1464,6 @@ public class PhotoUI implements PieListener,
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean(CameraSettings.KEY_SHOW_MENU_HELP, true);
             editor.apply();
-        }
-    }
-
-    public void showDistanceTip(String tip) {
-        if (mDistanceTip != null) {
-            if (tip != null) {
-                mDistanceTip.setText(tip);
-                mDistanceTip.setVisibility(View.VISIBLE);
-            } else {
-                mDistanceTip.setText("");
-                mDistanceTip.setVisibility(View.GONE);
-            }
         }
     }
 
