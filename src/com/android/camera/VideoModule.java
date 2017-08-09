@@ -78,6 +78,7 @@ import org.codeaurora.snapcam.wrapper.CamcorderProfileWrapper;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
@@ -479,6 +480,8 @@ public class VideoModule implements CameraModule,
             mPreferences = new ComboPreferences(mActivity);
         }
 
+        AndroidCameraManagerImpl.setDualCameraMode(false);
+
         CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), mActivity);
         mCameraId = getPreferredCameraId(mPreferences);
         mPreferences.setLocalId(mActivity, mCameraId);
@@ -493,6 +496,8 @@ public class VideoModule implements CameraModule,
         if (mPreferences == null) {
             mPreferences = new ComboPreferences(mActivity);
         }
+
+        AndroidCameraManagerImpl.setDualCameraMode(false);
 
         CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), activity);
         mCameraId = getPreferredCameraId(mPreferences);
@@ -2954,6 +2959,11 @@ public class VideoModule implements CameraModule,
             mSnapshotInProgress = false;
             showVideoSnapshotUI(false);
             storeImage(jpegData, mLocation);
+        }
+
+        @Override
+        public void onDualCameraPictureTaken(ByteBuffer pri, ByteBuffer aux, CameraProxy camera){
+
         }
     }
 
