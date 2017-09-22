@@ -1161,9 +1161,6 @@ public class PhotoUI implements PieListener,
             mPieRenderer.setBokehMode(enable);
             mIsBokehMode = enable;
         }
-        if (mGestures != null) {
-            mGestures.setZoomEnabled(!mIsBokehMode);
-        }
     }
 
     public void enableBokehFocus(boolean enable) {
