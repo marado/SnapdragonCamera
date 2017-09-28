@@ -1041,8 +1041,6 @@ public class VideoModule implements CameraModule,
     public void onResumeAfterSuper() {
         mUI.enableShutter(false);
         mZoomValue = 0;
-
-        initializeVideoControl();
         showVideoSnapshotUI(false);
 
         if (!mPreviewing) {
@@ -1057,6 +1055,7 @@ public class VideoModule implements CameraModule,
             // preview already started
             mUI.enableShutter(true);
         }
+        initializeVideoControl();
 
         mUI.initDisplayChangeListener();
         // Initializing it here after the preview is started.
