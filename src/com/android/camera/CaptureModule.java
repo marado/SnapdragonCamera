@@ -26,6 +26,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -55,20 +56,20 @@ import android.location.Location;
 import android.media.AudioManager;
 import android.media.CamcorderProfile;
 import android.media.CameraProfile;
+import android.media.EncoderCapabilities;
+import android.media.EncoderCapabilities.VideoEncoderCap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaActionSound;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
-import android.media.EncoderCapabilities;
-import android.media.EncoderCapabilities.VideoEncoderCap;
+import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.Bundle;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
@@ -88,7 +89,6 @@ import android.graphics.Paint;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.util.AttributeSet;
-import android.graphics.Bitmap;
 
 import com.android.camera.exif.ExifInterface;
 import com.android.camera.imageprocessor.filter.BlurbusterFilter;
@@ -127,7 +127,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.lang.reflect.Method;
@@ -222,6 +221,12 @@ public class CaptureModule implements CameraModule, PhotoController,
             new CaptureRequest.Key<>("org.codeaurora.qcamera3.saturation.use_saturation", Integer.class);
     public static final CaptureRequest.Key<Byte> histMode =
             new CaptureRequest.Key<>("org.codeaurora.qcamera3.histogram.enable", byte.class);
+
+    public static CameraCharacteristics.Key<int[]> ISO_AVAILABLE_MODES =
+            new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.iso_exp_priority.iso_available_modes", int[].class);
+    public static CameraCharacteristics.Key<long[]> EXPOSURE_RANGE =
+            new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.iso_exp_priority.exposure_time_range", long[].class);
+
     public static CameraCharacteristics.Key<Integer> buckets =
             new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.histogram.buckets", Integer.class);
     public static CameraCharacteristics.Key<Integer> maxCount =
@@ -249,6 +254,11 @@ public class CaptureModule implements CameraModule, PhotoController,
     public static CaptureResult.Key<byte[]> gazeDegree =
             new CaptureResult.Key<>("org.codeaurora.qcamera3.stats.gaze_degree",
                     byte[].class);
+    public static final CaptureRequest.Key<Integer> sharpness_control = new CaptureRequest.Key<>(
+            "org.codeaurora.qcamera3.sharpness.strength", Integer.class);
+
+    public static final CaptureRequest.Key<Integer> exposure_metering = new CaptureRequest.Key<>(
+            "org.codeaurora.qcamera3.exposure_metering.exposure_metering_mode", Integer.class);
 
     private boolean[] mTakingPicture = new boolean[MAX_NUM_CAM];
     private int mControlAFMode = CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -2125,6 +2135,9 @@ public class CaptureModule implements CameraModule, PhotoController,
         applyInstantAEC(builder);
         applySaturationLevel(builder);
         applyAntiBandingLevel(builder);
+        applySharpnessControlModes(builder);
+        applyAfModes(builder);
+        applyExposureMeteringModes(builder);
         applyHistogram(builder);
     }
 
@@ -3260,6 +3273,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                         mCaptureSession[cameraId] = cameraCaptureSession;
                         try {
                             setUpVideoCaptureRequestBuilder(mVideoRequestBuilder, cameraId);
+
                             mCurrentSession.setRepeatingRequest(mVideoRequestBuilder.build(),
                                     mCaptureCallback, mCameraHandler);
                         } catch (CameraAccessException e) {
@@ -3325,6 +3339,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         applyVideoFlash(builder);
         applyFaceDetection(builder);
         applyZoom(builder, cameraId);
+        applyVideoEncoderProfile(builder);
     }
 
     private void updateVideoFlash() {
@@ -3366,6 +3381,25 @@ public class CaptureModule implements CameraModule, PhotoController,
             builder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest
                     .CONTROL_VIDEO_STABILIZATION_MODE_OFF);
         }
+    }
+
+    private void applyVideoEncoderProfile(CaptureRequest.Builder builder) {
+        int profile = SettingTranslation.getVideoEncoderProfile(
+                mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE));
+        int mode = 0;
+        switch(profile) {
+            case MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10:
+                mode = 1;
+                break;
+            case MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10:
+                mode = 2;
+                break;
+        }
+        VendorTagUtil.setHDRVideoMode(builder, (byte)mode);
+    }
+
+    private boolean isVideoEncoderProfileSupported() {
+        return !mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE).equals("off");
     }
 
     private long getTimeLapseVideoLength(long deltaMs) {
@@ -3631,6 +3665,15 @@ public class CaptureModule implements CameraModule, PhotoController,
                 mProfile.fileFormat = MediaRecorder.OutputFormat.THREE_GPP;
             }
         }
+
+        if ( isVideoEncoderProfileSupported()
+                && VendorTagUtil.isHDRVideoModeSupported(mCameraDevice[cameraId])) {
+            int videoEncoderProfile = SettingTranslation.getVideoEncoderProfile(
+                    mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE));
+            mMediaRecorder.setVideoEncodingProfileLevel(videoEncoderProfile,
+                    MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel1);
+        }
+
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
 
         mMediaRecorder.setOutputFormat(mProfile.fileFormat);
@@ -3992,6 +4035,30 @@ public class CaptureModule implements CameraModule, PhotoController,
         }
     }
 
+    private void applySharpnessControlModes(CaptureRequest.Builder request) {
+        String value = mSettingsManager.getValue(SettingsManager.KEY_SHARPNESS_CONTROL_MODE);
+        if (value != null) {
+            int intValue = Integer.parseInt(value);
+            request.set(CaptureModule.sharpness_control, intValue);
+        }
+    }
+
+    private void applyAfModes(CaptureRequest.Builder request) {
+        String value = mSettingsManager.getValue(SettingsManager.KEY_AF_MODE);
+        if (value != null) {
+            int intValue = Integer.parseInt(value);
+            request.set(CaptureRequest.CONTROL_AF_MODE, intValue);
+        }
+    }
+
+    private void applyExposureMeteringModes(CaptureRequest.Builder request) {
+        String value = mSettingsManager.getValue(SettingsManager.KEY_EXPOSURE_METERING_MODE);
+        if (value != null) {
+            int intValue = Integer.parseInt(value);
+            request.set(CaptureModule.exposure_metering, intValue);
+        }
+    }
+
     private void applyHistogram(CaptureRequest.Builder request) {
         String value = mSettingsManager.getValue(SettingsManager.KEY_HISTOGRAM);
         if (value != null ) {
@@ -4145,7 +4212,8 @@ public class CaptureModule implements CameraModule, PhotoController,
             return;
         }
         if(getPostProcFilterId(mode) != PostProcessor.FILTER_NONE || mCaptureHDRTestEnable) {
-            request.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO);
+            request.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE);
+            request.set(CaptureRequest.CONTROL_SCENE_MODE, mode);
             return;
         }
         if (mode != CaptureRequest.CONTROL_SCENE_MODE_DISABLED
@@ -4167,6 +4235,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void applyIso(CaptureRequest.Builder request) {
         String value = mSettingsManager.getValue(SettingsManager.KEY_ISO);
+        if (applyManualIsoExposure(request)) return;
         if (value == null) return;
         if (value.equals("auto")) {
             VendorTagUtil.setIsoExpPrioritySelectPriority(request, 0);
@@ -4190,6 +4259,78 @@ public class CaptureModule implements CameraModule, PhotoController,
             request.set(CaptureRequest.SENSOR_EXPOSURE_TIME, null);
             request.set(CaptureRequest.SENSOR_SENSITIVITY, null);
         }
+
+    }
+
+    private boolean applyManualIsoExposure(CaptureRequest.Builder request) {
+        boolean result = false;
+        final SharedPreferences pref = mActivity.getSharedPreferences(
+                ComboPreferences.getLocalSharedPreferencesName(mActivity, getMainCameraId()),
+                Context.MODE_PRIVATE);
+        String isoPriority = mActivity.getString(
+                R.string.pref_camera_manual_exp_value_ISO_priority);
+        String expTimePriority = mActivity.getString(
+                R.string.pref_camera_manual_exp_value_exptime_priority);
+        String userSetting = mActivity.getString(
+                R.string.pref_camera_manual_exp_value_user_setting);
+        String manualExposureMode = mSettingsManager.getValue(SettingsManager.KEY_MANUAL_EXPOSURE);
+        if (manualExposureMode.equals(isoPriority)) {
+            int isoValue = Integer.parseInt(pref.getString(SettingsManager.KEY_MANUAL_ISO_VALUE,
+                    "100"));
+            VendorTagUtil.setIsoExpPrioritySelectPriority(request, 0);
+            long intValue = SettingsManager.KEY_ISO_INDEX.get(
+                    SettingsManager.MAUNAL_ABSOLUTE_ISO_VALUE);
+            VendorTagUtil.setIsoExpPriority(request, intValue);
+            VendorTagUtil.setUseIsoValues(request, isoValue);
+            if (DEBUG) {
+                Log.v(TAG, "manual ISO value :" + isoValue);
+            }
+            if (request.get(CaptureRequest.SENSOR_EXPOSURE_TIME) != null) {
+                mIsoExposureTime = request.get(CaptureRequest.SENSOR_EXPOSURE_TIME);
+            }
+            if (request.get(CaptureRequest.SENSOR_SENSITIVITY) != null) {
+                mIsoSensitivity = request.get(CaptureRequest.SENSOR_SENSITIVITY);
+            }
+            request.set(CaptureRequest.SENSOR_EXPOSURE_TIME, null);
+            request.set(CaptureRequest.SENSOR_SENSITIVITY, null);
+            result = true;
+        } else if (manualExposureMode.equals(expTimePriority)) {
+            long newExpTime = -1;
+            String expTime = pref.getString(SettingsManager.KEY_MANUAL_EXPOSURE_VALUE, "0");
+            try {
+                newExpTime = Long.parseLong(expTime);
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Input expTime " + expTime + " is invalid");
+                newExpTime = Long.parseLong(expTime);
+            }
+
+            if (DEBUG) {
+                Log.v(TAG, "manual Exposure value :" + newExpTime);
+            }
+            VendorTagUtil.setIsoExpPrioritySelectPriority(request, 1);
+            VendorTagUtil.setIsoExpPriority(request, newExpTime);
+            request.set(CaptureRequest.SENSOR_SENSITIVITY, null);
+            result = true;
+        } else if (manualExposureMode.equals(userSetting)) {
+            request.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+            int isoValue = Integer.parseInt(pref.getString(SettingsManager.KEY_MANUAL_ISO_VALUE,
+                    "100"));
+            long newExpTime = -1;
+            String expTime = pref.getString(SettingsManager.KEY_MANUAL_EXPOSURE_VALUE, "0");
+            try {
+                newExpTime = Long.parseLong(expTime);
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Input expTime " + expTime + " is invalid");
+                newExpTime = Long.parseLong(expTime);
+            }
+            if (DEBUG) {
+                Log.v(TAG, "manual ISO value : " + isoValue + ", Exposure value :" + newExpTime);
+            }
+            request.set(CaptureRequest.SENSOR_EXPOSURE_TIME, newExpTime);
+            request.set(CaptureRequest.SENSOR_SENSITIVITY, isoValue);
+            result = true;
+        }
+        return result;
     }
 
     private void applyColorEffect(CaptureRequest.Builder request) {

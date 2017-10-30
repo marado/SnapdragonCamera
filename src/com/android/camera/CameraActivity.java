@@ -129,7 +129,7 @@ public class CameraActivity extends Activity
         ActionBar.OnMenuVisibilityListener,
         ShareActionProvider.OnShareTargetSelectedListener {
 
-    private static final String TAG = "CAM_Activity"; 
+    private static final String TAG = "CAM_Activity";
 
     private static final String INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE =
             "android.media.action.STILL_IMAGE_CAMERA_SECURE";
@@ -1457,6 +1457,13 @@ public class CameraActivity extends Activity
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        try {
+            //Print version info here
+            String versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            Log.d(TAG, "snapdragoncamera_version: " + versionName);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
         // Check if this is in the secure camera mode.
         Intent intent = getIntent();
         String action = intent.getAction();
@@ -1467,7 +1474,6 @@ public class CameraActivity extends Activity
         } else {
             mSecureCamera = intent.getBooleanExtra(SECURE_CAMERA_EXTRA, false);
         }
-
         if (mSecureCamera) {
             // Change the window flags so that secure camera can show when locked
             Window win = getWindow();
