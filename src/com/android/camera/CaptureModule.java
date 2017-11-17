@@ -269,7 +269,9 @@ public class CaptureModule implements CameraModule, PhotoController,
     // The degrees of the device rotated clockwise from its natural orientation.
     private int mOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
     /*Histogram variables*/
-    private Camera2GraphView mGraphViewR,mGraphViewGR,mGraphViewGB,mGraphViewB;
+    private Camera2GraphView mGraphViewR,mGraphViewGB,mGraphViewB;
+    private DrawAutoHDR2 mDrawAutoHDR2;
+    public boolean mAutoHdrEnable;
     /*HDR Test*/
     private boolean mCaptureHDRTestEnable = false;
     boolean mHiston = false;
@@ -391,7 +393,8 @@ public class CaptureModule implements CameraModule, PhotoController,
     private int mHighSpeedCaptureRate;
     private CaptureRequest.Builder mVideoRequestBuilder;
 
-    public static int statsdata[] = new int[1024];
+    private static final int STATS_DATA = 768;
+    public static int statsdata[] = new int[STATS_DATA];
 
     private static final int SELFIE_FLASH_DURATION = 680;
 
@@ -596,7 +599,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                     /*The first element in the array stores max hist value . Stats data begin
                     from second value*/
                     synchronized (statsdata) {
-                        System.arraycopy(histogramStats, 0, statsdata, 0, 1024);
+                        System.arraycopy(histogramStats, 0, statsdata, 0, STATS_DATA);
                     }
                     updateGraghView();
                 }
@@ -903,24 +906,23 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         mNamedImages = new NamedImages();
         mGraphViewR = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_r);
-        mGraphViewGR = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_gr);
         mGraphViewGB = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_gb);
         mGraphViewB = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_b);
+        mDrawAutoHDR2 = (DrawAutoHDR2 )mRootView.findViewById(R.id.autohdr_view);
         mGraphViewR.setDataSection(0,256);
-        mGraphViewGR.setDataSection(256,512);
-        mGraphViewGB.setDataSection(512,768);
-        mGraphViewB.setDataSection(768,1024);
+        mGraphViewGB.setDataSection(256,512);
+        mGraphViewB.setDataSection(512,768);
         if (mGraphViewR != null){
             mGraphViewR.setCaptureModuleObject(this);
-        }
-        if (mGraphViewGR != null){
-            mGraphViewGR.setCaptureModuleObject(this);
         }
         if (mGraphViewGB != null){
             mGraphViewGB.setCaptureModuleObject(this);
         }
         if (mGraphViewB != null){
             mGraphViewB.setCaptureModuleObject(this);
+        }
+        if (mDrawAutoHDR2 != null) {
+            mDrawAutoHDR2.setCaptureModuleObject(this);
         }
         mFirstTimeInitialized = true;
     }
@@ -2063,18 +2065,20 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void applySettingsForCapture(CaptureRequest.Builder builder, int id) {
         builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
         applyJpegQuality(builder);
-        applyCommonSettings(builder, id);
         applyFlash(builder, id);
+        applyCommonSettings(builder, id);
     }
 
     private void applySettingsForPrecapture(CaptureRequest.Builder builder, int id) {
         builder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
                 CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
-        applyCommonSettings(builder, id);
 
         // For long shot, torch mode is used
-        if (!mLongshotActive)
+        if (!mLongshotActive) {
             applyFlash(builder, id);
+        }
+
+        applyCommonSettings(builder, id);
     }
 
     private void applySettingsForLockExposure(CaptureRequest.Builder builder, int id) {
@@ -2962,9 +2966,6 @@ public class CaptureModule implements CameraModule, PhotoController,
             if (mGraphViewR != null) {
                 mGraphViewR.setRotation(-mOrientation);
             }
-            if (mGraphViewGR != null) {
-                mGraphViewGR.setRotation(-mOrientation);
-            }
             if (mGraphViewGB != null) {
                 mGraphViewGB.setRotation(-mOrientation);
             }
@@ -2975,22 +2976,15 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         // need to re-initialize mGraphView to show histogram on rotate
         mGraphViewR = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_r);
-        mGraphViewGR = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_gr);
         mGraphViewGB = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_gb);
         mGraphViewB = (Camera2GraphView) mRootView.findViewById(R.id.graph_view_b);
         mGraphViewR.setDataSection(0,256);
-        mGraphViewGR.setDataSection(256,512);
-        mGraphViewGB.setDataSection(512,768);
-        mGraphViewB.setDataSection(768,1024);
+        mGraphViewGB.setDataSection(256,512);
+        mGraphViewB.setDataSection(512,768);
         if(mGraphViewR != null){
             mGraphViewR.setAlpha(0.75f);
             mGraphViewR.setCaptureModuleObject(this);
             mGraphViewR.PreviewChanged();
-        }
-        if(mGraphViewGR != null){
-            mGraphViewGR.setAlpha(0.75f);
-            mGraphViewGR.setCaptureModuleObject(this);
-            mGraphViewGR.PreviewChanged();
         }
         if(mGraphViewGB != null){
             mGraphViewGB.setAlpha(0.75f);
@@ -3384,17 +3378,14 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     private void applyVideoEncoderProfile(CaptureRequest.Builder builder) {
-        int profile = SettingTranslation.getVideoEncoderProfile(
-                mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE));
+        String profile = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE);
         int mode = 0;
-        switch(profile) {
-            case MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10:
-                mode = 1;
-                break;
-            case MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10:
-                mode = 2;
-                break;
+        if (profile.equals("HEVCProfileMain10HDR10")) {
+            mode = 2;
+        } else if (profile.equals("HEVCProfileMain10")) {
+            mode = 1;
         }
+        Log.d(TAG, "setHDRVideoMode: " + mode);
         VendorTagUtil.setHDRVideoMode(builder, (byte)mode);
     }
 
@@ -3670,6 +3661,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                 && VendorTagUtil.isHDRVideoModeSupported(mCameraDevice[cameraId])) {
             int videoEncoderProfile = SettingTranslation.getVideoEncoderProfile(
                     mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ENCODER_PROFILE));
+            Log.d(TAG, "setVideoEncodingProfileLevel: " + videoEncoderProfile + " " + MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel1);
             mMediaRecorder.setVideoEncodingProfileLevel(videoEncoderProfile,
                     MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel1);
         }
@@ -3983,8 +3975,8 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void initializePreviewConfiguration(int id) {
         mPreviewRequestBuilder[id].set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest
                 .CONTROL_AF_TRIGGER_IDLE);
-        applyCommonSettings(mPreviewRequestBuilder[id], id);
         applyFlash(mPreviewRequestBuilder[id], id);
+        applyCommonSettings(mPreviewRequestBuilder[id], id);
     }
 
     public float getZoomValue() {
@@ -4081,9 +4073,6 @@ public class CaptureModule implements CameraModule, PhotoController,
                 if(mGraphViewR != null) {
                     mGraphViewR.setVisibility(visibility);
                 }
-                if(mGraphViewGR != null) {
-                    mGraphViewGR.setVisibility(visibility);
-                }
                 if(mGraphViewGB != null) {
                     mGraphViewGB.setVisibility(visibility);
                 }
@@ -4099,9 +4088,6 @@ public class CaptureModule implements CameraModule, PhotoController,
             public void run() {
                 if(mGraphViewR != null) {
                     mGraphViewR.PreviewChanged();
-                }
-                if(mGraphViewGR != null) {
-                    mGraphViewGR.PreviewChanged();
                 }
                 if(mGraphViewGB != null) {
                     mGraphViewGB.PreviewChanged();
@@ -4204,12 +4190,30 @@ public class CaptureModule implements CameraModule, PhotoController,
         String autoHdr = mSettingsManager.getValue(SettingsManager.KEY_AUTO_HDR);
         if (value == null) return;
         int mode = Integer.parseInt(value);
+        mAutoHdrEnable = false;
         if (autoHdr != null && "enable".equals(autoHdr) && "0".equals(value)) {
             if (mSettingsManager.isHdrScene(getMainCameraId())) {
+                mAutoHdrEnable = true;
                 request.set(CaptureRequest.CONTROL_SCENE_MODE, CaptureRequest.CONTROL_SCENE_MODE_HDR);
                 request.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE);
+                mActivity.runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (mDrawAutoHDR2 != null) {
+                            mDrawAutoHDR2.setVisibility(View.VISIBLE);
+                            mDrawAutoHDR2.AutoHDR();
+                        }
+                    }
+                });
             }
             return;
+        } else {
+            mActivity.runOnUiThread( new Runnable() {
+                public void run () {
+                    if (mDrawAutoHDR2 != null) {
+                        mDrawAutoHDR2.setVisibility (View.INVISIBLE);
+                    }
+                }
+            });
         }
         if(getPostProcFilterId(mode) != PostProcessor.FILTER_NONE || mCaptureHDRTestEnable) {
             request.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_USE_SCENE_MODE);
@@ -5192,6 +5196,46 @@ class Camera2GraphView extends View {
     }
 
     public void setCaptureModuleObject(CaptureModule captureModule) {
+        mCaptureModule = captureModule;
+    }
+}
+
+class DrawAutoHDR2 extends View{
+
+    private static final String TAG = "AutoHdrView";
+    private CaptureModule mCaptureModule;
+
+    public DrawAutoHDR2 (Context context, AttributeSet attrs) {
+        super(context,attrs);
+    }
+
+    @Override
+    protected void onDraw (Canvas canvas) {
+        if (mCaptureModule == null)
+            return;
+        if (mCaptureModule.mAutoHdrEnable) {
+            Paint autoHDRPaint = new Paint();
+            autoHDRPaint.setColor(Color.WHITE);
+            autoHDRPaint.setAlpha (0);
+            canvas.drawPaint(autoHDRPaint);
+            autoHDRPaint.setStyle(Paint.Style.STROKE);
+            autoHDRPaint.setColor(Color.MAGENTA);
+            autoHDRPaint.setStrokeWidth(1);
+            autoHDRPaint.setTextSize(32);
+            autoHDRPaint.setAlpha (255);
+            canvas.drawText("HDR On",200,100,autoHDRPaint);
+        }
+        else {
+            super.onDraw(canvas);
+            return;
+        }
+    }
+
+    public void AutoHDR () {
+        invalidate();
+    }
+
+    public void setCaptureModuleObject (CaptureModule captureModule) {
         mCaptureModule = captureModule;
     }
 }
