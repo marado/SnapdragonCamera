@@ -142,6 +142,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     public static final int BAYER_ID = 0;
     public static int MONO_ID = -1;
     public static int FRONT_ID = -1;
+    public static int LOGICAL_ID = -1;
     public static final int INTENT_MODE_NORMAL = 0;
     public static final int INTENT_MODE_CAPTURE = 1;
     public static final int INTENT_MODE_VIDEO = 2;
@@ -658,6 +659,8 @@ public class CaptureModule implements CameraModule, PhotoController,
         public void onError(CameraDevice cameraDevice, int error) {
             int id = Integer.parseInt(cameraDevice.getId());
             Log.e(TAG, "onError " + id + " " + error);
+            cameraDevice.close();
+            mCameraDevice[id] = null;
             mCameraOpenCloseLock.release();
             mCamerasOpened = false;
 
@@ -983,9 +986,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                     break;
             }
         } else {
-            int switchId = Integer.parseInt(
-                    mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA));
-            int cameraId = switchId == -1? FRONT_ID : switchId;
+            int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
             createSession(cameraId);
         }
     }
@@ -1341,9 +1342,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                         break;
                 }
             } else {
-                int switchId = Integer.parseInt(
-                        mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA));
-                int cameraId = switchId == -1? FRONT_ID : switchId;
+                int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
                 if(takeZSLPicture(cameraId)) {
                     return;
                 }
@@ -1378,7 +1377,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                     break;
             }
         } else {
-            cameraId = FRONT_ID;
+            cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
         }
         captureStillPicture(cameraId);
     }
@@ -2474,6 +2473,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     @Override
     public void onResumeAfterSuper() {
         Log.d(TAG, "onResume " + getCameraMode());
+        reinit();
         initializeValues();
         updatePreviewSize();
         mCameraIdList = new ArrayList<>();
@@ -2501,9 +2501,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                     break;
             }
         } else {
-            int switchId = Integer.parseInt(
-                    mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA));
-            int cameraId = switchId == -1? FRONT_ID : switchId;
+            int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
             msg.arg1 = cameraId;
             mCameraHandler.sendMessage(msg);
         }
@@ -2647,7 +2645,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                     break;
             }
         } else {
-            applyZoomAndUpdate(FRONT_ID);
+            int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
+            applyZoomAndUpdate(cameraId);
         }
         mUI.updateFaceViewCameraBound(mCropRegion[getMainCameraId()]);
     }
@@ -2662,6 +2661,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                 case MONO_MODE:
                     return cameraId == MONO_ID;
             }
+        } else if (LOGICAL_ID != -1) {
+            return cameraId == LOGICAL_ID;
         } else {
             return cameraId == FRONT_ID;
         }
@@ -2830,7 +2831,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                     break;
             }
         } else {
-            triggerFocusAtPoint(x, y, FRONT_ID);
+            int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
+            triggerFocusAtPoint(x, y, cameraId);
         }
     }
 
@@ -2845,9 +2847,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             }
             return 0;
         } else {
-            int switchId = Integer.parseInt(
-                    mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA));
-            int cameraId = switchId == -1? FRONT_ID : switchId;
+            int cameraId = LOGICAL_ID == -1? FRONT_ID : LOGICAL_ID;
             return cameraId;
         }
     }
@@ -4637,6 +4637,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         boolean updatePreviewBayer = false;
         boolean updatePreviewMono = false;
         boolean updatePreviewFront = false;
+        boolean updatePreviewLogical = false;
         int count = 0;
         for (SettingsManager.SettingState settingState : settings) {
             String key = settingState.key;
@@ -4707,7 +4708,9 @@ public class CaptureModule implements CameraModule, PhotoController,
                         updatePreviewMono |= applyPreferenceToPreview(MONO_ID, key, value);
                         break;
                 }
-            } else {
+            } else if (LOGICAL_ID != -1) {
+                updatePreviewLogical = applyPreferenceToPreview(LOGICAL_ID,key,value);
+            }else {
                 updatePreviewFront |= applyPreferenceToPreview(FRONT_ID, key, value);
             }
             count++;
@@ -4744,6 +4747,18 @@ public class CaptureModule implements CameraModule, PhotoController,
                 if (checkSessionAndBuilder(mCaptureSession[FRONT_ID],
                         mPreviewRequestBuilder[FRONT_ID])) {
                     mCaptureSession[FRONT_ID].setRepeatingRequest(mPreviewRequestBuilder[FRONT_ID]
+                            .build(), mCaptureCallback, mCameraHandler);
+                }
+            } catch (CameraAccessException | IllegalStateException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (updatePreviewLogical) {
+            try {
+                if (checkSessionAndBuilder(mCaptureSession[LOGICAL_ID],
+                        mPreviewRequestBuilder[LOGICAL_ID])) {
+                    mCaptureSession[LOGICAL_ID].setRepeatingRequest(mPreviewRequestBuilder[LOGICAL_ID]
                             .build(), mCaptureCallback, mCameraHandler);
                 }
             } catch (CameraAccessException | IllegalStateException e) {
