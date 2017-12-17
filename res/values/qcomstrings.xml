@@ -1195,7 +1195,7 @@
     <string name="pref_camera2_sharpness_control_entry_level5" translatable="false">Level 5</string>
     <string name="pref_camera2_sharpness_control_entry_level6" translatable="false">Level 6</string>
 
-    <string name="pref_camera2_afmode_default" translatable="false">4</string>
+    <string name="pref_camera2_afmode_default" translatable="false">0</string>
     <string name="pref_camera2_afmode_title">Auto Focus Mode</string>
     <string name="pref_camera2_afmode_entry_off">Off</string>
     <string name="pref_camera2_afmode_entry_auto">Auto</string>
@@ -1218,6 +1218,16 @@
     <string name="pref_camera2_exposure_metering_entryvalue_frame_average" translatable="false">0</string>
     <string name="pref_camera2_exposure_metering_entryvalue_center_weighted" translatable="false">1</string>
     <string name="pref_camera2_exposure_metering_entryvalue_spot_meteting" translatable="false">2</string>
+
+    <string name="pref_camera2_switch_camera_default" translatable="false">-1</string>
+    <string name="pref_camera2_switch_camera_title" translatable="true">Switch camera by id</string>
+
+    <!-- QCFA Title -->
+    <string name="pref_camera2_qcfa_title" translatable="true">QCFA</string>
+    <string name="pref_camera2_qcfa_default" translatable="false">disable</string>
+    <!-- QCFA choices -->
+    <string name="pref_camera_qcfa_value_disable">disable</string>
+    <string name="pref_camera_qcfa_value_enable">enable</string>
 
 </resources>
 

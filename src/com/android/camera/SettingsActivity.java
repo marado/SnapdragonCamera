@@ -112,8 +112,14 @@ public class SettingsActivity extends PreferenceActivity {
                 if (pref != null) {
                     pref.setEnabled(enabled);
                 }
+
                 if ( pref.getKey().equals(SettingsManager.KEY_MANUAL_EXPOSURE) ) {
                     UpdateManualExposureSettings();
+                }
+
+                if ( pref.getKey().equals(SettingsManager.KEY_QCFA) ) {
+                    mSettingsManager.updateQcfaPictureSize();
+                    updatePreference(SettingsManager.KEY_PICTURE_SIZE);
                 }
             }
         }
@@ -380,6 +386,7 @@ public class SettingsActivity extends PreferenceActivity {
         updatePreference(SettingsManager.KEY_VIDEO_HIGH_FRAME_RATE);
         updatePreference(SettingsManager.KEY_VIDEO_ENCODER);
         updatePreference(SettingsManager.KEY_ZOOM);
+        updatePreference(SettingsManager.KEY_SWITCH_CAMERA);
         updatePictureSizePreferenceButton();
 
         Map<String, SettingsManager.Values> map = mSettingsManager.getValuesMap();
