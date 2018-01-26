@@ -1506,7 +1506,17 @@ public class VideoModule implements CameraModule,
             } else {  // back-facing camera
                 rotation = (info.orientation + mOrientation) % 360;
             }
+        } else {
+            CameraInfo info = CameraHolder.instance().getCameraInfo()[mCameraId];
+            if (info.facing == CameraInfo.CAMERA_FACING_FRONT) {
+                rotation = info.orientation % 360;
+            } else {  // back-facing camera
+                rotation = info.orientation % 360;
+            }
         }
+
+        Log.v(TAG, "setOrientationHint:" +rotation + "mOrientation:" + mOrientation);
+
         mMediaRecorder.setOrientationHint(rotation);
         setupMediaRecorderPreviewDisplay();
 
