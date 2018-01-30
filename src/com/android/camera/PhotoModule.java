@@ -86,6 +86,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.os.Trace;
 
 import com.android.internal.util.MemInfoReader;
 import android.app.ActivityManager;
@@ -977,7 +978,13 @@ public class PhotoModule
         public void onShutter(CameraProxy camera) {
             mShutterCallbackTime = System.currentTimeMillis();
             mShutterLag = mShutterCallbackTime - mCaptureStartTime;
-            Log.e(TAG, "[KPI Perf] PROFILE_SHUTTER_LAG mShutterLag = " + mShutterLag + "ms");
+
+            Trace.beginSection("[KPI Perf] LongshotShutterCallback PROFILE_SHUTTER_LAG");
+            try {
+              Log.e(TAG, "[KPI Perf] PROFILE_SHUTTER_LAG mShutterLag = " + mShutterLag + "ms");
+            } finally {
+              Trace.endSection();
+            }
             synchronized(mCameraDevice) {
 
                 if (++mLongshotSnapNum >= mLongShotMaxSnap &&
@@ -1028,7 +1035,12 @@ public class PhotoModule
         public void onShutter(CameraProxy camera) {
             mShutterCallbackTime = System.currentTimeMillis();
             mShutterLag = mShutterCallbackTime - mCaptureStartTime;
-            Log.e(TAG, "[KPI Perf] PROFILE_SHUTTER_LAG mShutterLag = " + mShutterLag + "ms");
+            Trace.beginSection("[KPI Perf] ShutterCallback PROFILE_SHUTTER_LAG");
+            try {
+              Log.e(TAG, "[KPI Perf] PROFILE_SHUTTER_LAG mShutterLag = " + mShutterLag + "ms");
+            } finally {
+              Trace.endSection();
+            }
             if (mNeedsAnimation) {
                 mActivity.runOnUiThread(new Runnable() {
                     @Override
