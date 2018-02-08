@@ -295,7 +295,7 @@ public class CameraControls extends RotatableLayout {
             center(retake, shutter, rotation);
             View cancel = findViewById(R.id.btn_cancel);
             toLeft(cancel, shutter, rotation);
-            View done = findViewById(R.id.btn_done);
+            View done = findViewById(R.id.done_button);
             toRight(done, shutter, rotation);
         }
 
