@@ -1152,12 +1152,6 @@ public class SettingsManager implements ListMenu.SettingsListener {
         return maxAfRegions != null && maxAfRegions > 0;
     }
 
-    public boolean isHdrScene(int id) {
-        Integer hdrScene = mCharacteristics.get(id).get(
-                CaptureModule.isHdrScene);
-        return hdrScene != null && hdrScene == 1;
-    }
-
     public boolean isFixedFocus(int id) {
         Float focusDistance = mCharacteristics.get(id).get(CameraCharacteristics
                 .LENS_INFO_MINIMUM_FOCUS_DISTANCE);
@@ -1500,7 +1494,8 @@ public class SettingsManager implements ListMenu.SettingsListener {
     }
 
     public boolean getQcfaPrefEnabled() {
-        String qcfa = getValue(KEY_QCFA);
+        ListPreference qcfaPref = mPreferenceGroup.findPreference(KEY_QCFA);
+        String qcfa = qcfaPref.getValue();
         if(qcfa != null && qcfa.equals("enable")) {
             return true;
         }
