@@ -109,9 +109,9 @@ public class SettingsActivity extends PreferenceActivity {
                 SettingsManager.Values values = map.get(state.key);
                 boolean enabled = values.overriddenValue == null;
                 Preference pref = findPreference(state.key);
-                if (pref != null) {
-                    pref.setEnabled(enabled);
-                }
+                if ( pref == null ) return;
+
+                pref.setEnabled(enabled);
 
                 if ( pref.getKey().equals(SettingsManager.KEY_MANUAL_EXPOSURE) ) {
                     UpdateManualExposureSettings();
@@ -127,7 +127,7 @@ public class SettingsActivity extends PreferenceActivity {
 
     private void UpdateManualExposureSettings() {
         //dismiss all popups first, because we need to show edit dialog
-        int cameraId = Integer.parseInt(mSettingsManager.getValue(SettingsManager.KEY_CAMERA_ID));
+        int cameraId = mSettingsManager.getCurrentCameraId();
         final SharedPreferences pref = SettingsActivity.this.getSharedPreferences(
                 ComboPreferences.getLocalSharedPreferencesName(SettingsActivity.this,
                         cameraId),
