@@ -252,6 +252,10 @@ public class CaptureModule implements CameraModule, PhotoController,
             new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.quadra_cfa.qcfa_dimension", int[].class);
     public static CameraCharacteristics.Key<Byte> bsgcAvailable =
             new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.stats.bsgc_available", Byte.class);
+    public static CameraCharacteristics.Key<Byte> logicalMode =
+            new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.logical.mode", Byte.class);
+    public static CaptureResult.Key<Byte> fusionStatus =
+            new CaptureResult.Key<>("org.codeaurora.qcamera3.fusion.status", byte.class);
     public static CaptureResult.Key<byte[]> blinkDetected =
             new CaptureResult.Key<>("org.codeaurora.qcamera3.stats.blink_detected", byte[].class);
     public static CaptureResult.Key<byte[]> blinkDegree =
@@ -1423,6 +1427,9 @@ public class CaptureModule implements CameraModule, PhotoController,
                         lockFocus(MONO_ID);
                         break;
                     case SWITCH_MODE:
+                        if (takeZSLPicture(SWITCH_ID)) {
+                            return;
+                        }
                         lockFocus(SWITCH_ID);
                         break;
                 }
@@ -3201,6 +3208,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             Log.d(TAG, "Longshot button up");
             mLongshotActive = false;
             mPostProcessor.stopLongShot();
+            mUI.enableVideo(!mLongshotActive);
         }
     }
 
@@ -3500,7 +3508,8 @@ public class CaptureModule implements CameraModule, PhotoController,
         if (!mIsRecordingVideo || mHighSpeedCapture) return;
         applyVideoFlash(mVideoRequestBuilder);
         try {
-            mCurrentSession.setRepeatingRequest(mVideoRequestBuilder.build(), null, mCameraHandler);
+            mCurrentSession.setRepeatingRequest(mVideoRequestBuilder.build(), mCaptureCallback,
+                    mCameraHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -4030,11 +4039,13 @@ public class CaptureModule implements CameraModule, PhotoController,
 
             if (isLongshotNeedCancel()) {
                 mLongshotActive = false;
+                mUI.enableVideo(!mLongshotActive);
                 return;
             }
 
             Log.d(TAG, "Start Longshot");
             mLongshotActive = true;
+            mUI.enableVideo(!mLongshotActive);
             takePicture();
         }
     }
