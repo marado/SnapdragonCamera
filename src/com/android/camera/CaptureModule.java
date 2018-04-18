@@ -581,9 +581,6 @@ public class CaptureModule implements CameraModule, PhotoController,
         Byte hdrScene = result.get(CaptureModule.isHdr);
         if (value == null || hdrScene == null) return;
         mAutoHdrEnable = false;
-        if (DEBUG) {
-            Log.d(TAG, "detectHDRMode: autoHdr is " + autoHdr + ",hdrScene is " + hdrScene);
-        }
         if (autoHdr != null && "enable".equals(autoHdr) && "0".equals(value) && hdrScene == 1) {
             mAutoHdrEnable = true;
             mActivity.runOnUiThread(new Runnable() {
@@ -1337,6 +1334,8 @@ public class CaptureModule implements CameraModule, PhotoController,
         } catch (CameraAccessException e) {
         } catch (IllegalStateException e) {
             Log.v(TAG, "createSession: mPaused status occur Time out waiting for surface ");
+        } catch (NullPointerException e) {
+
         }
     }
 
@@ -4154,6 +4153,8 @@ public class CaptureModule implements CameraModule, PhotoController,
             }
         } catch (CameraAccessException e) {
             stopRecordingVideo(getMainCameraId());
+            e.printStackTrace();
+        } catch (IllegalStateException e) {
             e.printStackTrace();
         }
     }
