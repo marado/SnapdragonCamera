@@ -806,7 +806,7 @@ int Blend::PerformFinalBlending(YUVinfo &imgMos, MosaicRect &cropping_rect)
         delete b[j];
     }
 
-    delete b;
+    delete[] b;
 
     return BLEND_RET_OK;
 }
@@ -1328,7 +1328,7 @@ void Blend::ComputeBlendParameters(MosaicFrame **frames, int frames_size, int is
         double dy = prevY - firstY;
 
         // If the mosaic was captured by sweeping horizontally
-        if (abs(lxpos - fxpos) > abs(lypos - fypos))
+        if (fabs(lxpos - fxpos) > fabs(lypos - fypos))
         {
             m_wb.horizontal = 1;
             // Calculate radius position to make ends exactly the same Y offset
