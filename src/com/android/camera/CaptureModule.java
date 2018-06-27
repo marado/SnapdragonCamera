@@ -1795,6 +1795,17 @@ public class CaptureModule implements CameraModule, PhotoController,
             applyZoom(captureBuilder, id);
 
             captureBuilder.addTarget(mVideoSnapshotImageReader.getSurface());
+            // send snapshot stream together with preview and video stream for snapshot request
+            // stream is the surface for the app
+            Surface surface = getPreviewSurfaceForSession(id);
+            if (getFrameProcFilterId().size() == 1 && getFrameProcFilterId().get(0) ==
+                    FrameProcessor.FILTER_MAKEUP) {
+                captureBuilder.addTarget(mFrameProcessor.getInputSurfaces().get(0));
+            } else {
+                captureBuilder.addTarget(surface);
+            }
+            List<Surface> surfaces = new ArrayList<>();
+            addPreviewSurface(captureBuilder, surfaces, id);
 
             mCurrentSession.capture(captureBuilder.build(),
                     new CameraCaptureSession.CaptureCallback() {
@@ -4380,6 +4391,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void applyJpegQuality(CaptureRequest.Builder request) {
         String value = mSettingsManager.getValue(SettingsManager.KEY_JPEG_QUALITY);
+        if (value == null) return;
         int jpegQuality = getQualityNumber(value);
         request.set(CaptureRequest.JPEG_QUALITY, (byte) jpegQuality);
     }
@@ -4602,6 +4614,10 @@ public class CaptureModule implements CameraModule, PhotoController,
     public void triggerFocusAtPoint(float x, float y, int id) {
         if (DEBUG) {
             Log.d(TAG, "triggerFocusAtPoint " + x + " " + y + " " + id);
+        }
+        if (mCropRegion[id] == null) {
+            Log.d(TAG, "crop region is null at " + id);
+            return;
         }
         Point p = mUI.getSurfaceViewSize();
         int width = p.x;
@@ -5157,7 +5173,6 @@ public class CaptureModule implements CameraModule, PhotoController,
         if (bitmap != null) {
             // MetadataRetriever already rotates the thumbnail. We should rotate
             // it to match the UI orientation (and mirror if it is front-facing camera).
-            Camera.CameraInfo[] info = CameraHolder.instance().getCameraInfo();
             boolean mirror = mPostProcessor.isSelfieMirrorOn();
             bitmap = CameraUtil.rotateAndMirror(bitmap, 0, mirror);
         }
