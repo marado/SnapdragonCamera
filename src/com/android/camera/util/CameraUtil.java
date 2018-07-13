@@ -36,6 +36,7 @@ import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
+import android.hardware.camera2.CameraCharacteristics;
 import android.location.Location;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -588,6 +589,7 @@ public class CameraUtil {
         // new overlay will be created before the old one closed, which causes
         // an exception. For now, just get the screen size.
         Point point = getDefaultDisplaySize(currentActivity, new Point());
+        final double ratio_4_3 = (double)4/3;
         int targetHeight = Math.min(point.x, point.y);
         double minDiff = targetHeight;
         // Try to find an size match aspect ratio and size
@@ -597,7 +599,11 @@ public class CameraUtil {
             if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE) continue;
 
             // Count sizes with height <= 1080p to mimic camera1 api behavior.
-            if (size.y > MAX_ASPECT_HEIGHT) continue;
+            if (ratio_4_3 == targetRatio) {
+                if (size.y > minDiff) continue;
+            } else {
+                if (size.y > MAX_ASPECT_HEIGHT) continue;
+            }
 
             double heightDiff = Math.abs(size.y - targetHeight);
             if (heightDiff < minDiff) {
@@ -990,11 +996,13 @@ public class CameraUtil {
         if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
             orientation = 0;
         }
-        CameraInfo info = CameraHolder.instance().getCameraInfo()[cameraId];
-        if (info.facing == CameraInfo.CAMERA_FACING_FRONT) {
-            rotation = (info.orientation - orientation + 360) % 360;
+        CameraCharacteristics info = CameraHolder.instance().getCameraCharacteristics(cameraId);
+        if (info.get(CameraCharacteristics.LENS_FACING) ==
+                CameraCharacteristics.LENS_FACING_FRONT) {
+            rotation = (info.get(CameraCharacteristics.SENSOR_ORIENTATION)
+                    - orientation + 360) % 360;
         } else {  // back-facing camera
-            rotation = (info.orientation + orientation) % 360;
+            rotation = (info.get(CameraCharacteristics.SENSOR_ORIENTATION) + orientation) % 360;
         }
         return rotation;
     }
