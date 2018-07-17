@@ -404,10 +404,12 @@
      <string name="pref_camera_hfr_entry_3x">HFR 90</string>
      <string name="pref_camera_hfr_entry_4x">HFR 120</string>
      <string name="pref_camera_hfr_entry_8x">HFR 240</string>
+     <string name="pref_camera_hfr_entry_16x">HFR 480</string>
      <string name="pref_camera_hfr_entry_hsr_60">HSR 60</string>
      <string name="pref_camera_hfr_entry_hsr_90">HSR 90</string>
      <string name="pref_camera_hfr_entry_hsr_120">HSR 120</string>
      <string name="pref_camera_hfr_entry_hsr_240">HSR 240</string>
+     <string name="pref_camera_hfr_entry_hsr_480">HSR 480</string>
 
      <!-- HFR entry values. Do not translate. -->
      <string name="pref_camera_hfr_value_off">off</string>
@@ -415,10 +417,12 @@
      <string name="pref_camera_hfr_value_3x">hfr90</string>
      <string name="pref_camera_hfr_value_4x">hfr120</string>
      <string name="pref_camera_hfr_value_8x">hfr240</string>
+     <string name="pref_camera_hfr_value_16x">hfr480</string>
      <string name="pref_camera_hfr_value_hsr_60">hsr60</string>
      <string name="pref_camera_hfr_value_hsr_90">hsr90</string>
      <string name="pref_camera_hfr_value_hsr_120">hsr120</string>
      <string name="pref_camera_hfr_value_hsr_240">hsr240</string>
+     <string name="pref_camera_hfr_value_hsr_480">hsr480</string>
 
      <!-- Default noise reduction setting. Do not translate. -->
      <string name="pref_camera_noise_reduction_default">off</string>
@@ -1198,14 +1202,16 @@
     <string name="pref_camera2_sharpness_control_entry_level5" translatable="false">Level 5</string>
     <string name="pref_camera2_sharpness_control_entry_level6" translatable="false">Level 6</string>
 
-    <string name="pref_camera2_afmode_default" translatable="false">0</string>
+    <string name="pref_camera2_afmode_default" translatable="false">-1</string>
     <string name="pref_camera2_afmode_title">Auto Focus Mode</string>
+    <string name="pref_camera2_afmode_entry_disable">Disable</string>
     <string name="pref_camera2_afmode_entry_off">Off</string>
     <string name="pref_camera2_afmode_entry_auto">Auto</string>
     <string name="pref_camera2_afmode_entry_macro">Macro</string>
     <string name="pref_camera2_afmode_entry_continuous_video">Continuous Video</string>
     <string name="pref_camera2_afmode_entry_continuous_picture">Continuous Picture</string>
     <string name="pref_camera2_afmode_entry_edof">EDOF</string>
+    <string name="pref_camera2_afmode_value_disable" translatable="false">-1</string>
     <string name="pref_camera2_afmode_value_off" translatable="false">0</string>
     <string name="pref_camera2_afmode_value_auto" translatable="false">1</string>
     <string name="pref_camera2_afmode_value_macro" translatable="false">2</string>
@@ -1258,5 +1264,12 @@
     <string name="pref_camera2_deepportrait_entry_value_disable" translatable="false">off</string>
     <string name="pref_camera2_deepportrait_entry_value_enable" translatable="false">on</string>
     <string name="pref_camera_scenemode_entry_deepportrait" translatable="false">Deepportrait</string>
+
+    <string name="pref_camera2_earlypcr_title" translatable="false">Early PCR</string>
+    <string name="pref_camera2_earlypcr_default" translatable="false">enable</string>
+    <string name="pref_camera2_earlypcr_entry_enable" translatable="false">enable</string>
+    <string name="pref_camera2_earlypcr_entry_disable" translatable="false">disable</string>
+    <string name="pref_camera2_earlypcr_entry_value_enable" translatable="false">enable</string>
+    <string name="pref_camera2_earlypcr_entry_value_disable" translatable="false">disable</string>
 </resources>
 

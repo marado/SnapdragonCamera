@@ -469,7 +469,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
             mCameraControls.setVideoMode(false);
             mCancelButton.setVisibility(View.VISIBLE);
             mReviewCancelButton = mRootView.findViewById(R.id.preview_btn_cancel);
-            mReviewDoneButton = mRootView.findViewById(R.id.preview_btn_done);
+            mReviewDoneButton = mRootView.findViewById(R.id.done_button);
             mReviewRetakeButton = mRootView.findViewById(R.id.preview_btn_retake);
             mReviewPlayButton = mRootView.findViewById(R.id.preview_play);
             mPreviewLayout = (FrameLayout)mRootView.findViewById(R.id.preview_of_intent);
@@ -1333,9 +1333,9 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         FrameLayout layout = (FrameLayout)mActivity.findViewById(R.id.camera_glpreview);
         if (mGLSurfaceView != null) {
             mGLSurfaceView.setVisibility(View.GONE);
-            layout.removeView(mGLSurfaceView);
+            layout.removeAllViews();
+            mGLSurfaceView = null;
         }
-        mGLSurfaceView = null;
         mDeepportraitSeekBar.setVisibility(View.GONE);
         mRenderOverlay.setVisibility(View.VISIBLE);
     }
