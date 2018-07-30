@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,7 +149,6 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public static final String KEY_INSTANT_AEC = "pref_camera2_instant_aec_key";
     public static final String KEY_SATURATION_LEVEL = "pref_camera2_saturation_level_key";
     public static final String KEY_ANTI_BANDING_LEVEL = "pref_camera2_anti_banding_level_key";
-    public static final String KEY_HISTOGRAM = "pref_camera2_histogram_key";
     public static final String KEY_AUTO_HDR = "pref_camera2_auto_hdr_key";
     public static final String KEY_HDR = "pref_camera2_hdr_key";
     public static final String KEY_VIDEO_HDR_VALUE = "pref_camera2_video_hdr_key";
@@ -166,6 +165,11 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public static final String KEY_FOVC_VALUE = "pref_camera2_fovc_key";
     public static final String KEY_DEEPPORTRAIT_VALUE = "pref_camera2_deepportrait_key";
     public static final String KEY_EARLY_PCR_VALUE = "pref_camera2_earlypcr_key";
+    public static final String KEY_AWB_RAGIN_VALUE = "pref_camera2_awb_cct_rgain_key";
+    public static final String KEY_AWB_GAGIN_VALUE = "pref_camera2_awb_cct_ggain_key";
+    public static final String KEY_AWB_BAGIN_VALUE = "pref_camera2_awb_cct_bgain_key";
+    public static final String KEY_AWB_CCT_VALUE = "pref_camera2_awb_cct_key";
+    public static final String KEY_STATS_VISUALIZER_VALUE = "pref_camera2_stats_visualizer_key";
 
     public static final HashMap<String, Integer> KEY_ISO_INDEX = new HashMap<String, Integer>();
     public static final String KEY_BSGC_DETECTION = "pref_camera2_bsgc_key";
@@ -225,11 +229,12 @@ public class SettingsManager implements ListMenu.SettingsListener {
         if (mPreferences == null) {
             mPreferences = new ComboPreferences(mContext);
         }
-        CameraSettings.upgradeGlobalPreferences(mPreferences.getGlobal(), mContext);
+        upgradeGlobalPreferences(mPreferences.getGlobal(), mContext);
 
         CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
         try {
             String[] cameraIdList = manager.getCameraIdList();
+            boolean isFirstBackCameraId = true;
             for (int i = 0; i < cameraIdList.length; i++) {
                 String cameraId = cameraIdList[i];
                 CameraCharacteristics characteristics
@@ -248,6 +253,10 @@ public class SettingsManager implements ListMenu.SettingsListener {
                 if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
                     CaptureModule.FRONT_ID = i;
                     mIsFrontCameraPresent = true;
+                } else if (facing == CameraCharacteristics.LENS_FACING_BACK &&
+                        isFirstBackCameraId) {
+                    isFirstBackCameraId = false;
+                    upgradeCameraId(mPreferences.getGlobal(), i);
                 }
                 mCharacteristics.add(i, characteristics);
             }
@@ -273,6 +282,14 @@ public class SettingsManager implements ListMenu.SettingsListener {
         if (sInstance != null) {
             sInstance = null;
         }
+    }
+
+    private void upgradeGlobalPreferences(SharedPreferences pref, Context context) {
+        CameraSettings.upgradeOldVersion(pref, context);
+    }
+
+    private void upgradeCameraId(SharedPreferences pref, int id) {
+        CameraSettings.writePreferredCameraId(pref, id);
     }
 
     public List<String> getDisabledList() {
@@ -331,7 +348,9 @@ public class SettingsManager implements ListMenu.SettingsListener {
         mDependendsOnMap = new HashMap<>();
         mFilteredKeys = new HashSet<>();
         try {
-            mExtendedHFRSize = mCharacteristics.get(cameraId).get(CaptureModule.hfrFpsTable);
+            if (cameraId < mCharacteristics.size() -1) {
+                mExtendedHFRSize = mCharacteristics.get(cameraId).get(CaptureModule.hfrFpsTable);
+            }
         }catch(IllegalArgumentException exception) {
             exception.printStackTrace();
         }
@@ -385,6 +404,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
             Values values = new Values(pref.getValue(), null);
             mValuesMap.put(pref.getKey(), values);
         }
+
         for (String keyToProcess : processLater) {
             Set<String> dependsOnSet = mDependendsOnMap.get(keyToProcess);
             String dependentKey = dependsOnSet.iterator().next();
@@ -442,7 +462,6 @@ public class SettingsManager implements ListMenu.SettingsListener {
         while (it.hasNext()) {
             turnOn.remove(it.next());
         }
-
 
         for (String keyToTurnOn: turnOn) {
             Set<String> dependsOnSet = mDependendsOnMap.get(keyToTurnOn);
@@ -692,7 +711,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         ListPreference instantAec = mPreferenceGroup.findPreference(KEY_INSTANT_AEC);
         ListPreference saturationLevel = mPreferenceGroup.findPreference(KEY_SATURATION_LEVEL);
         ListPreference antiBandingLevel = mPreferenceGroup.findPreference(KEY_ANTI_BANDING_LEVEL);
-        ListPreference histogram = mPreferenceGroup.findPreference(KEY_HISTOGRAM);
+        ListPreference stats_visualizer = mPreferenceGroup.findPreference(KEY_STATS_VISUALIZER_VALUE);
         ListPreference hdr = mPreferenceGroup.findPreference(KEY_HDR);
         ListPreference zoom = mPreferenceGroup.findPreference(KEY_ZOOM);
         ListPreference qcfa = mPreferenceGroup.findPreference(KEY_QCFA);
@@ -745,10 +764,10 @@ public class SettingsManager implements ListMenu.SettingsListener {
             }
         }
 
-        if (histogram != null) {
-            if (filterUnsupportedOptions(histogram,
-                    getSupportedHistogramAvailableModes(cameraId))) {
-                mFilteredKeys.add(histogram.getKey());
+        if (stats_visualizer != null) {
+            if (filterUnsupportedOptions(stats_visualizer,
+                    getSupportedStatsVisualizerAvailableModes(cameraId))) {
+                mFilteredKeys.add(stats_visualizer.getKey());
             }
         }
 
@@ -1621,11 +1640,17 @@ public class SettingsManager implements ListMenu.SettingsListener {
         return  modes;
     }
 
-    public List<String> getSupportedHistogramAvailableModes(int cameraId) {
-        String[] data = {"enable","disable"};
+    public List<String> getSupportedStatsVisualizerAvailableModes(int cameraId) {
+        int[] statsVisualizerAvailableModes = {0, 1, 2, 3};
+        /*
+        0 - disable stats
+        1 - enable BG stats
+        2 - enable BE stats
+        3 - enable Hist stats
+        */
         List<String> modes = new ArrayList<>();
-        for (String i : data) {
-            modes.add(i);
+        for (int i : statsVisualizerAvailableModes) {
+            modes.add(""+i);
         }
         return  modes;
     }
@@ -1648,9 +1673,15 @@ public class SettingsManager implements ListMenu.SettingsListener {
         return profile;
     }
 
-    public boolean isHistogramSupport(){
-        String value = getValue(KEY_HISTOGRAM);
-        return value != null && value.equals("enable");
+    public int isStatsVisualizerSupport(){
+        String value = getValue(KEY_STATS_VISUALIZER_VALUE);
+        int num_val;
+        if (value == null) {
+            num_val = -1;
+            return num_val;
+        }
+        num_val = Integer.parseInt(value);
+        return num_val;
     }
 
     public boolean isCamera2HDRSupport(){

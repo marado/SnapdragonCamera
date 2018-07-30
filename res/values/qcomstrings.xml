@@ -404,10 +404,12 @@
      <string name="pref_camera_hfr_entry_3x">HFR 90</string>
      <string name="pref_camera_hfr_entry_4x">HFR 120</string>
      <string name="pref_camera_hfr_entry_8x">HFR 240</string>
+     <string name="pref_camera_hfr_entry_16x">HFR 480</string>
      <string name="pref_camera_hfr_entry_hsr_60">HSR 60</string>
      <string name="pref_camera_hfr_entry_hsr_90">HSR 90</string>
      <string name="pref_camera_hfr_entry_hsr_120">HSR 120</string>
      <string name="pref_camera_hfr_entry_hsr_240">HSR 240</string>
+     <string name="pref_camera_hfr_entry_hsr_480">HSR 480</string>
 
      <!-- HFR entry values. Do not translate. -->
      <string name="pref_camera_hfr_value_off">off</string>
@@ -415,10 +417,12 @@
      <string name="pref_camera_hfr_value_3x">hfr90</string>
      <string name="pref_camera_hfr_value_4x">hfr120</string>
      <string name="pref_camera_hfr_value_8x">hfr240</string>
+     <string name="pref_camera_hfr_value_16x">hfr480</string>
      <string name="pref_camera_hfr_value_hsr_60">hsr60</string>
      <string name="pref_camera_hfr_value_hsr_90">hsr90</string>
      <string name="pref_camera_hfr_value_hsr_120">hsr120</string>
      <string name="pref_camera_hfr_value_hsr_240">hsr240</string>
+     <string name="pref_camera_hfr_value_hsr_480">hsr480</string>
 
      <!-- Default noise reduction setting. Do not translate. -->
      <string name="pref_camera_noise_reduction_default">off</string>
@@ -1119,11 +1123,6 @@
     <string name="pref_camera2_anti_banding_level_entry_60hz" translatable="true">60HZ</string>
     <string name="pref_camera2_anti_banding_level_entry_auto" translatable="true">Auto</string>
 
-    <string name="pref_camera2_histogram_title" translatable="true">Histogram</string>
-    <string name="pref_camera2_histogram_default" translatable="false">disable</string>
-    <string name="pref_camera2_histogram_entry_enable" translatable="true">Enable</string>
-    <string name="pref_camera2_histogram_entry_disable" translatable="true">Disable</string>
-
     <string name="pref_camera2_hdr_title" translatable="true">HDR &amp; Non-HDR</string>
     <string name="pref_camera2_hdr_default" translatable="false">disable</string>
     <string name="pref_camera2_hdr_entry_enable" translatable="true">Enable</string>
@@ -1262,10 +1261,21 @@
     <string name="pref_camera_scenemode_entry_deepportrait" translatable="false">Deepportrait</string>
 
     <string name="pref_camera2_earlypcr_title" translatable="false">Early PCR</string>
-    <string name="pref_camera2_earlypcr_default" translatable="false">enable</string>
+    <string name="pref_camera2_earlypcr_default" translatable="false">disable</string>
     <string name="pref_camera2_earlypcr_entry_enable" translatable="false">enable</string>
     <string name="pref_camera2_earlypcr_entry_disable" translatable="false">disable</string>
     <string name="pref_camera2_earlypcr_entry_value_enable" translatable="false">enable</string>
     <string name="pref_camera2_earlypcr_entry_value_disable" translatable="false">disable</string>
+
+    <string name="pref_camera2_stats_visualizer_title" translatable="true">Stats Visualizer</string>
+    <string name="pref_camera2_stats_visualizer_default" translatable="false">0</string>
+    <string name="pref_camera2_stats_visualizer_entry_disable" translatable="false">Disable All</string>
+    <string name="pref_camera2_stats_visualizer_entry_bg_stats" translatable="false">BG Stats</string>
+    <string name="pref_camera2_stats_visualizer_entry_be_stats" translatable="false">BE Stats</string>
+    <string name="pref_camera2_stats_visualizer_entry_hist_stats" translatable="false">Hist Stats</string>
+    <string name="pref_camera2_stats_visualizer_entry_value_disable" translatable="false">0</string>
+    <string name="pref_camera2_stats_visualizer_entry_value_enable_bg" translatable="false">1</string>
+    <string name="pref_camera2_stats_visualizer_entry_value_enable_be" translatable="false">2</string>
+    <string name="pref_camera2_stats_visualizer_entry_value_enable_hist" translatable="false">3</string>
 </resources>
 
