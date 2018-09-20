@@ -352,7 +352,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         mDependendsOnMap = new HashMap<>();
         mFilteredKeys = new HashSet<>();
         try {
-            if (cameraId < mCharacteristics.size() -1) {
+            if (mCharacteristics.size() > 0) {
                 mExtendedHFRSize = mCharacteristics.get(cameraId).get(CaptureModule.hfrFpsTable);
             }
         }catch(IllegalArgumentException exception) {
@@ -945,12 +945,13 @@ public class SettingsManager implements ListMenu.SettingsListener {
             exposureRange =  mCharacteristics.get(cameraId).get(
                     CaptureModule.EXPOSURE_RANGE);
             if (exposureRange == null) {
+                Log.w(TAG, "get exposure range modes is null.");
                 return null;
             }
         } catch(NullPointerException e) {
             Log.w(TAG, "Supported exposure range modes is null.");
         } catch(IllegalArgumentException e) {
-            Log.w(TAG, "Supported exposure range modes is null.");
+            Log.w(TAG, "IllegalArgumentException Supported exposure range modes is null.");
         }
         return exposureRange;
     }
@@ -1380,13 +1381,17 @@ public class SettingsManager implements ListMenu.SettingsListener {
     }
 
     private List<String> getSupportedWhiteBalanceModes(int cameraId) {
-        int[] whiteBalanceModes = mCharacteristics.get(cameraId).get(CameraCharacteristics
-                .CONTROL_AWB_AVAILABLE_MODES);
-        List<String> modes = new ArrayList<>();
-        for (int mode : whiteBalanceModes) {
-            modes.add("" + mode);
+        try {
+            int[] whiteBalanceModes = mCharacteristics.get(cameraId).get(CameraCharacteristics
+                    .CONTROL_AWB_AVAILABLE_MODES);
+            List<String> modes = new ArrayList<>();
+            for (int mode : whiteBalanceModes) {
+                modes.add("" + mode);
+            }
+            return modes;
+        } catch (IndexOutOfBoundsException e) {
+            return null;
         }
-        return modes;
     }
 
     private List<String> getSupportedSceneModes(int cameraId) {

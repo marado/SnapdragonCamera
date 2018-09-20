@@ -362,12 +362,14 @@ public class CaptureModule implements CameraModule, PhotoController,
             new CaptureRequest.Key<>("org.quic.camera.recording.endOfStream", byte.class);
     public static final CaptureRequest.Key<Byte> earlyPCR =
             new CaptureRequest.Key<>("org.quic.camera.EarlyPCRenable.EarlyPCRenable", byte.class);
-
+    private static final CaptureResult.Key<Byte> is_depth_focus =
+            new CaptureResult.Key<>("org.quic.camera.isDepthFocus.isDepthFocus", byte.class);
     public static final CaptureRequest.Key<Integer> capture_mfnr_enable =
             new CaptureRequest.Key<>("org.codeaurora.qcamera3.mfnr_enable", Integer.class);
     public static final CaptureRequest.Key<Integer> capture_mfsr_enable =
             new CaptureRequest.Key<>("org.codeaurora.qcamera3.mfsr_enable", Integer.class);
 
+    private boolean mIsDepthFocus = false;
     private boolean[] mTakingPicture = new boolean[MAX_NUM_CAM];
     private int mControlAFMode = CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
     private int mLastResultAFState = -1;
@@ -3463,7 +3465,9 @@ public class CaptureModule implements CameraModule, PhotoController,
         mUI.setFocusPosition(x, y);
         x = newXY[0];
         y = newXY[1];
-        mUI.onFocusStarted();
+        if (!mIsDepthFocus) {
+            mUI.onFocusStarted();
+        }
         if (isBackCamera()) {
             switch (getCameraMode()) {
                 case DUAL_MODE:
@@ -4013,7 +4017,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         }
     };
 
-    private void configureCameraSessionWithParameters(CameraDevice camera,
+    private void configureCameraSessionWithParameters(int cameraId,
             List<Surface> outputSurfaces, CameraCaptureSession.StateCallback listener,
             Handler handler, CaptureRequest initialRequest) throws CameraAccessException {
         List<OutputConfiguration> outConfigurations = new ArrayList<>(outputSurfaces.size());
@@ -4022,13 +4026,32 @@ public class CaptureModule implements CameraModule, PhotoController,
             outConfigurations.add(new OutputConfiguration(surface));
         }
 
+        String zzHDR = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_HDR_VALUE);
+        boolean zzHdrStatue = zzHDR.equals("1");
+        // if enable ZZHDR mode, don`t call the setOpModeForVideoStream method.
+        /* if (!zzHdrStatue) {
+            setOpModeForVideoStream(cameraId);
+        }*/
+        String value = mSettingsManager.getValue(SettingsManager.KEY_FOVC_VALUE);
+        if (value != null && Boolean.parseBoolean(value)) {
+            mStreamConfigOptMode = mStreamConfigOptMode | STREAM_CONFIG_MODE_FOVC;
+        }
+        if (zzHdrStatue) {
+            mStreamConfigOptMode = STREAM_CONFIG_MODE_ZZHDR;
+        }
+        if (DEBUG) {
+            Log.v(TAG, "configureCameraSessionWithParameters mStreamConfigOptMode :"
+                    + mStreamConfigOptMode);
+        }
+
         Method method_setSessionParameters = null;
         Method method_createCaptureSession = null;
         Object sessionConfig = null;
         try {
             Class clazz = Class.forName("android.hardware.camera2.params.SessionConfiguration");
             sessionConfig = clazz.getConstructors()[0].newInstance(
-                    SESSION_REGULAR, outConfigurations, new HandlerExecutor(handler), listener);
+                    SESSION_REGULAR | mStreamConfigOptMode, outConfigurations,
+                    new HandlerExecutor(handler), listener);
             if (method_setSessionParameters == null) {
                 method_setSessionParameters = clazz.getDeclaredMethod(
                         "setSessionParameters", CaptureRequest.class);
@@ -4036,7 +4059,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             method_setSessionParameters.invoke(sessionConfig, initialRequest);
             method_createCaptureSession = CameraDevice.class.getDeclaredMethod(
                     "createCaptureSession", clazz);
-            method_createCaptureSession.invoke(camera, sessionConfig);
+            method_createCaptureSession.invoke(mCameraDevice[cameraId], sessionConfig);
         } catch (Exception exception) {
             Log.w(TAG, "configureCameraSessionWithParameters method is not exist");
             exception.printStackTrace();
@@ -4118,7 +4141,10 @@ public class CaptureModule implements CameraModule, PhotoController,
             if (mHighSpeedCapture) {
                 preview = mVideoSize;
             }
-            mUI.setPreviewSize(preview.getWidth(), preview.getHeight());
+            if (mUI.setPreviewSize(preview.getWidth(), preview.getHeight())) {
+                mUI.hideSurfaceView();
+                mUI.showSurfaceView();
+            }
             mUI.resetTrackingFocus();
 
             createVideoSnapshotImageReader();
@@ -4158,7 +4184,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                             mSessionListener, mCameraHandler, initialRequest);
 
                 } else {
-                    configureCameraSessionWithParameters(mCameraDevice[cameraId], surfaces,
+                    configureCameraSessionWithParameters(cameraId, surfaces,
                             mSessionListener, mCameraHandler, mVideoRequestBuilder.build());
                 }
             } else {
@@ -4605,7 +4631,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                 }
             } else {
                 // is pause or stopRecord
-                if (!(mMediaRecorderPausing && mStopRecPending)) {
+                if (!(mMediaRecorderPausing && mStopRecPending) && (mCurrentSession != null)) {
                     mCurrentSession.stopRepeating();
                     try {
                         mVideoRequestBuilder.set(CaptureModule.recording_end_stream, (byte) 0x01);
@@ -4629,7 +4655,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             }
 
             // set preview
-            if (captureRequestBuilder != null) {
+            if (captureRequestBuilder != null && (mCurrentSession != null)) {
                 if (mCurrentSession instanceof CameraConstrainedHighSpeedCaptureSession) {
                     List requestList = CameraUtil.createHighSpeedRequestList(captureRequestBuilder.build());
                     mCurrentSession.setRepeatingBurst(requestList,
@@ -6021,6 +6047,19 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void updateFocusStateChange(CaptureResult result) {
         final Integer resultAFState = result.get(CaptureResult.CONTROL_AF_STATE);
         if (resultAFState == null) return;
+        try {
+            Byte isDepthFocus = result.get(CaptureModule.is_depth_focus);
+            if(DEBUG) Log.d(TAG, "isDepthFocus is " + isDepthFocus);
+            if (isDepthFocus != null && isDepthFocus == 1) {
+                mIsDepthFocus = true;
+                return;
+            } else {
+                mIsDepthFocus = false;
+            }
+        } catch (IllegalArgumentException e) {
+            mIsDepthFocus = false;
+            if (DEBUG) e.printStackTrace();
+        }
 
         // Report state change when AF state has changed.
         if (resultAFState != mLastResultAFState && mFocusStateListener != null) {
