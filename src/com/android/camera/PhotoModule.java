@@ -1497,6 +1497,7 @@ public class PhotoModule
                 mUI.resumeFaceDetection();
                 if (!mIsImageCaptureIntent) {
                     setCameraState(IDLE);
+                    mFocusManager.onShutterUp();
                 }
                 startFaceDetection();
             }
