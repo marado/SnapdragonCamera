@@ -785,7 +785,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                                        CaptureRequest request,
                                        TotalCaptureResult result) {
             int id = (int) result.getRequest().getTag();
-
+            result.getKeys(); //workaround for MMleak in cameradevice.cpp
 
             if (id == getMainCameraId()) {
                 updateFocusStateChange(result);
