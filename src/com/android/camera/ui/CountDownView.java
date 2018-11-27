@@ -100,7 +100,7 @@ public class CountDownView extends FrameLayout {
             mRemainingSecondsView.startAnimation(mCountDownAnim);
 
             // Play sound effect for the last 3 seconds of the countdown
-            if (mPlaySound) {
+            if (mPlaySound && mSoundPool != null) {
                 if (newVal == 1) {
                     mSoundPool.play(mBeepTwice, 1.0f, 1.0f, 0, 0, 1.0f);
                 } else if (newVal <= 3) {
