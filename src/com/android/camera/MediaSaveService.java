@@ -19,7 +19,6 @@ package com.android.camera;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteOrder;
 
 import android.app.Service;
@@ -51,8 +50,6 @@ import org.codeaurora.snapcam.filter.GImage;
 
 import com.adobe.xmp.XMPException;
 import com.adobe.xmp.XMPMeta;
-
-import androidx.heifwriter.HeifWriter;
 
 
 /*
@@ -167,7 +164,7 @@ public class MediaSaveService extends Service {
         t.execute();
     }
 
-    public void addHEIFImage(String path,String title,long date , Location loc,
+    public void addHEIFImageFromJpeg(byte[] data, String title, long date, Location loc,
                              int width, int height, int orientation, ExifInterface exif,
                              ContentResolver resolver, OnMediaSavedListener listener,
                              int qualitiy, String pictureFormat) {
@@ -175,9 +172,12 @@ public class MediaSaveService extends Service {
             Log.e(TAG, "Cannot add image when the queue is full");
             return;
         }
-        HEIFImageSaveTask t = new HEIFImageSaveTask(path,title,date, loc, width, height, orientation,
+        HEIFImageSaveTask t = new HEIFImageSaveTask(data, title, date, loc, width, height, orientation,
                 exif, resolver, listener, qualitiy, pictureFormat);
-
+        mMemoryUse += data.length;
+        if (isQueueFull()) {
+            onQueueFull();
+        }
         t.execute();
     }
 
@@ -347,7 +347,7 @@ public class MediaSaveService extends Service {
     }
 
     private class HEIFImageSaveTask extends AsyncTask<Void, Void, Uri> {
-        private String path;
+        private byte[] data;
         private String title;
         private long date;
         private Location loc;
@@ -359,11 +359,11 @@ public class MediaSaveService extends Service {
         private int quality;
         private String pictureFormat;
 
-        public HEIFImageSaveTask(String path, String title, long date, Location loc,
+        public HEIFImageSaveTask(byte[] data, String title, long date, Location loc,
                                  int width, int height, int orientation, ExifInterface exif,
                                  ContentResolver resolver, OnMediaSavedListener listener,
                                  int quality,String pictureFormat) {
-            this.path = path;
+            this.data = data;
             this.title = title;
             this.date = date;
             this.loc = loc;
@@ -385,13 +385,15 @@ public class MediaSaveService extends Service {
         @Override
         protected Uri doInBackground(Void... params) {
             return Storage.addHeifImage(
-                    resolver,title,date,loc,orientation,exif,path,
+                    resolver,title,date,loc,orientation,exif,data,
                     width,height,quality,pictureFormat);
         }
 
         @Override
         protected void onPostExecute(Uri uri) {
             boolean previouslyFull = isQueueFull();
+            mMemoryUse -= data.length;
+            if (isQueueFull() != previouslyFull) onQueueAvailable();
         }
     }
 

@@ -1421,10 +1421,6 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         }
     }
 
-    public boolean isShutterEnabled() {
-        return mShutterButton.isEnabled();
-    }
-
     /**
      * Enables or disables the video button.
      */
@@ -1545,17 +1541,8 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         showUIAfterCountDown();
     }
 
-    public void initCountDownView() {
-        if (mCountDownView == null) initializeCountDown();
-    }
-
-    public void releaseSoundPool() {
-        if (mCountDownView != null) {
-            mCountDownView.releaseSoundPool();
-        }
-    }
-
     public void startCountDown(int sec, boolean playSound) {
+        if (mCountDownView == null) initializeCountDown();
         mCountDownView.startCountDown(sec, playSound);
         hideUIWhileCountDown();
     }
