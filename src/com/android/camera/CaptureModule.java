@@ -259,6 +259,10 @@ public class CaptureModule implements CameraModule, PhotoController,
             new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.logical.mode", Byte.class);
     public static CaptureResult.Key<Byte> fusionStatus =
             new CaptureResult.Key<>("org.codeaurora.qcamera3.fusion.status", byte.class);
+    public static CameraCharacteristics.Key<int[]> support_video_hdr_modes =
+            new CameraCharacteristics.Key<>("org.codeaurora.qcamera3.video_hdr_mode.vhdr_supported_modes", int[].class);
+    public static CaptureRequest.Key<Integer> support_video_hdr_values =
+            new CaptureRequest.Key<>("org.codeaurora.qcamera3.video_hdr_mode.vhdr_mode", Integer.class);
     public static CaptureResult.Key<byte[]> blinkDetected =
             new CaptureResult.Key<>("org.codeaurora.qcamera3.stats.blink_detected", byte[].class);
     public static CaptureResult.Key<byte[]> blinkDegree =
@@ -3482,9 +3486,11 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void updateVideoSnapshotSize() {
         mVideoSnapshotSize = mVideoSize;
-        if (is4kSize(mVideoSize) && is4kSize(mVideoSnapshotSize)) {
-            mVideoSnapshotSize = getMaxPictureSizeLessThan4k();
+        if (!is4kSize(mVideoSize) && (mHighSpeedCaptureRate == 0)) {
+            mVideoSnapshotSize = getMaxPictureSizeLiveshot();
         }
+        Log.d(TAG, "mVideoSnapshotSize: " +
+                mVideoSnapshotSize.getWidth() + ", " + mVideoSnapshotSize.getHeight());
         Size[] thumbSizes = mSettingsManager.getSupportedThumbnailSizes(getMainCameraId());
         mVideoSnapshotThumbSize = getOptimalPreviewSize(mVideoSnapshotSize, thumbSizes); // get largest thumb size
     }
@@ -3795,6 +3801,18 @@ public class CaptureModule implements CameraModule, PhotoController,
         applyVideoFlash(builder);
         applyFaceDetection(builder);
         applyZoom(builder, cameraId);
+        applyVideoHDR(builder);
+    }
+
+    private void applyVideoHDR(CaptureRequest.Builder builder) {
+        String value = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_HDR_VALUE);
+        if (value != null) {
+            try {
+                builder.set(CaptureModule.support_video_hdr_values, Integer.parseInt(value));
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "cannot find vendor tag: " + support_video_hdr_values.toString());
+            }
+        }
     }
 
     private void updateVideoFlash() {
@@ -5187,6 +5205,31 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         int optimalPickIndex = CameraUtil.getOptimalPreviewSize(mActivity, points, targetRatio);
         return (optimalPickIndex == -1) ? null : prevSizes[optimalPickIndex];
+    }
+
+    private Size getMaxPictureSizeLiveshot() {
+        Size[] sizes = mSettingsManager.getSupportedOutputSize(getMainCameraId(), ImageFormat.JPEG);
+        float ratio = (float) mVideoSize.getWidth() / mVideoSize.getHeight();
+        Size optimalSize = null;
+        for (Size size : sizes) {
+            float pictureRatio = (float) size.getWidth() / size.getHeight();
+            if (Math.abs(pictureRatio - ratio) > 0.01) continue;
+            if (optimalSize == null || size.getWidth() > optimalSize.getWidth()) {
+                optimalSize = size;
+            }
+        }
+
+        // Cannot find one that matches the aspect ratio. This should not happen.
+        // Ignore the requirement.
+        if (optimalSize == null) {
+            Log.w(TAG, "getMaxPictureSizeLiveshot: no picture size match the aspect ratio");
+            for (Size size : sizes) {
+                if (optimalSize == null || size.getWidth() > optimalSize.getWidth()) {
+                    optimalSize = size;
+                }
+            }
+        }
+        return optimalSize;
     }
 
     private Size getMaxPictureSizeLessThan4k() {
