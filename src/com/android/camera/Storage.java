@@ -146,6 +146,8 @@ public class Storage {
 
             if (mimeType.equalsIgnoreCase("heif")){
                 values.put(ImageColumns.DISPLAY_NAME, title + ".heic");
+            } else if(mimeType.equalsIgnoreCase("heifs")){
+                values.put(ImageColumns.DISPLAY_NAME, title + ".heics");
             } else {
                 values.put(ImageColumns.DISPLAY_NAME, title + ".jpg");
             }
@@ -215,30 +217,8 @@ public class Storage {
     }
 
     public static Uri addHeifImage(ContentResolver resolver, String title, long date,
-                                   Location location, int orientation, ExifInterface exif, byte[] data, int width,
+                                   Location location, int orientation, ExifInterface exif, String path, int width,
                                    int height, int quality, String mimeType) {
-        String path = generateFilepath(title, mimeType);
-        Bitmap bitmap = BitmapFactory.decodeByteArray(data,0,data.length);
-        if (bitmap != null) {
-            try {
-                HeifWriter.Builder builder =
-                        new HeifWriter.Builder(path,width, height,HeifWriter.INPUT_MODE_BITMAP);
-                builder.setQuality(quality);
-                builder.setMaxImages(1);
-                builder.setPrimaryIndex(0);
-                builder.setRotation(orientation);
-                HeifWriter heifWriter = builder.build();
-                heifWriter.start();
-                heifWriter.addBitmap(bitmap);
-                heifWriter.stop(3000);
-                heifWriter.close();
-            } catch (IOException|IllegalStateException e) {
-                e.printStackTrace();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            bitmap.recycle();
-        }
         File f = new File(path);
         int size = 0;
         if (f.exists() && f.isFile()) {
@@ -293,10 +273,13 @@ public class Storage {
 
     public static String generateFilepath(String title, String pictureFormat) {
         if (pictureFormat == null || pictureFormat.equalsIgnoreCase("jpeg")
-                || pictureFormat.equalsIgnoreCase("heif")) {
+                || pictureFormat.equalsIgnoreCase("heif")
+                || pictureFormat.equalsIgnoreCase("heifs")) {
             String suffix = ".jpg";
             if (pictureFormat.equalsIgnoreCase("heif")) {
                 suffix = ".heic";
+            }else if(pictureFormat.equalsIgnoreCase("heifs")) {
+                suffix = ".heics";
             }
             if (isSaveSDCard() && SDCard.instance().isWriteable()) {
                 return SDCard.instance().getDirectory() + '/' + title + suffix;

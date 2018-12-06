@@ -454,6 +454,8 @@ public class PostProcessor{
     }
 
     public boolean takeZSLPicture() {
+        if (mZSLQueue == null)
+            return false;
         mController.setJpegImageData(null);
         ZSLQueue.ImageItem imageItem = mZSLQueue.tryToGetMatchingItem();
         if(mController.getPreviewCaptureResult() == null ||
@@ -720,9 +722,6 @@ public class PostProcessor{
             mZSLQueue = new ZSLQueue(mController);
         }
         mMaxRequiredImageNum = MAX_REQUIRED_IMAGE_NUM;
-        if(mController.isLongShotSettingEnabled()) {
-            mMaxRequiredImageNum = Math.max(MAX_REQUIRED_IMAGE_NUM, PersistUtil.getLongshotShotLimit()+2);
-        }
         mPendingContinuousRequestCount = 0;
     }
 
@@ -1284,19 +1283,9 @@ public class PostProcessor{
                             mController.showCapturedReview(bytes, orientation);
                         }
                     } else {
-                        if(SettingsManager.getInstance().getSavePictureFormat() ==
-                                SettingsManager.HEIF_FORMAT) {
-                            String value = SettingsManager.getInstance().getValue(
-                                    SettingsManager.KEY_JPEG_QUALITY);
-                            int qualityNumber = CaptureModule.getQualityNumber(value);
-                            mActivity.getMediaSaveService().addHEIFImageFromJpeg(bytes,title,date,null,
-                                    image.getWidth(),image.getHeight(),orientation,null,mActivity.getContentResolver(),
-                                    mController.getMediaSavedListener(),qualityNumber,"heif");
-                        } else {
-                            mActivity.getMediaSaveService().addImage(
-                                    bytes, title, date, null, image.getCropRect().width(), image.getCropRect().height(),
-                                    orientation, null, mController.getMediaSavedListener(), mActivity.getContentResolver(), "jpeg");
-                        }
+                        mActivity.getMediaSaveService().addImage(
+                                bytes, title, date, null, image.getCropRect().width(), image.getCropRect().height(),
+                                orientation, null, mController.getMediaSavedListener(), mActivity.getContentResolver(), "jpeg");
                         mController.updateThumbnailJpegData(bytes);
                         image.close();
                     }
