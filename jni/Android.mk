@@ -70,6 +70,6 @@ LOCAL_SDK_VERSION := 9
 LOCAL_MODULE    := libjni_imageutil
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := image_util_jni.cpp
-LOCAL_CFLAGS    += -ffast-math -O3 -funroll-loops
+LOCAL_CFLAGS    += -ffast-math -O3 -funroll-loops -Wno-unused-parameter
 include $(BUILD_SHARED_LIBRARY)
 
