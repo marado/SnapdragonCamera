@@ -99,6 +99,17 @@ public class CountDownView extends FrameLayout {
             mRemainingSecondsView.clearAnimation();
             mRemainingSecondsView.startAnimation(mCountDownAnim);
 
+            if (mSoundPool == null) {
+                // Load the beeps
+                if (mContext.getResources().getBoolean(R.bool.force_count_down_sound)) {
+                    mSoundPool = new SoundPool(1, AudioManager.STREAM_SYSTEM_ENFORCED, 0);
+                } else {
+                    mSoundPool = new SoundPool(1, AudioManager.STREAM_NOTIFICATION, 0);
+                }
+                mBeepOnce = mSoundPool.load(mContext, R.raw.beep_once, 1);
+                mBeepTwice = mSoundPool.load(mContext, R.raw.beep_twice, 1);
+            }
+
             // Play sound effect for the last 3 seconds of the countdown
             if (mPlaySound && mSoundPool != null) {
                 if (newVal == 1) {
