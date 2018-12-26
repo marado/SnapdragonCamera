@@ -3168,8 +3168,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                         CameraConstrainedHighSpeedCaptureSession session =
                                     (CameraConstrainedHighSpeedCaptureSession) mCurrentSession;
                         try {
-                            List list = CameraUtil
-                                 .createHighSpeedRequestList(mVideoRequestBuilder.build(),cameraId);
+                            List list = session 
+                                    .createHighSpeedRequestList(mVideoRequestBuilder.build());
                             session.setRepeatingBurst(list, mCaptureCallback, mCameraHandler);
                         } catch (CameraAccessException e) {
                             Log.e(TAG, "Failed to start high speed video recording "
@@ -4066,8 +4066,17 @@ public class CaptureModule implements CameraModule, PhotoController,
                 mCaptureSession[id].capture(mPreviewRequestBuilder[id]
                         .build(), mCaptureCallback, mCameraHandler);
             } else {
-                mCaptureSession[id].setRepeatingRequest(mPreviewRequestBuilder[id]
-                        .build(), mCaptureCallback, mCameraHandler);
+                CameraCaptureSession session = mCaptureSession[id];
+                if (session instanceof CameraConstrainedHighSpeedCaptureSession) {
+                    List list = ((CameraConstrainedHighSpeedCaptureSession)session)
+                            .createHighSpeedRequestList(mPreviewRequestBuilder[id].build());
+                    ((CameraConstrainedHighSpeedCaptureSession) session).setRepeatingBurst(list
+                            , mCaptureCallback, mCameraHandler);
+                } else {
+                    mCaptureSession[id].setRepeatingRequest(mPreviewRequestBuilder[id]
+                            .build(), mCaptureCallback, mCameraHandler);
+                }
+
             }
         } catch (CameraAccessException | IllegalStateException e) {
             e.printStackTrace();
