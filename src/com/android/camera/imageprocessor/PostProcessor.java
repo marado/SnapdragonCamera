@@ -479,6 +479,11 @@ public class PostProcessor{
                 image.close();
                 return;
             }
+            String value = SettingsManager.getInstance().getValue(SettingsManager.KEY_JPEG_QUALITY);
+            int jpegQuality = 85;
+            if (value != null) {
+                jpegQuality = mController.getQualityNumber(value);
+            }
             if (DEBUG_ZSL) Log.d(TAG, "reprocess Image request " + image.getTimestamp());
             CaptureRequest.Builder builder = null;
             try {
@@ -487,6 +492,7 @@ public class PostProcessor{
                         mCameraDevice.createReprocessCaptureRequest(metadata);
                 builder.set(CaptureRequest.JPEG_ORIENTATION,
                             CameraUtil.getJpegRotation(mController.getMainCameraId(), mController.getDisplayOrientation()));
+                builder.set(CaptureRequest.JPEG_QUALITY, (byte) jpegQuality);
                 builder.set(CaptureRequest.JPEG_THUMBNAIL_SIZE, mController.getThumbSize());
                 builder.set(CaptureRequest.JPEG_THUMBNAIL_QUALITY, (byte)80);
                 builder.set(CaptureRequest.COLOR_CORRECTION_ABERRATION_MODE,
@@ -523,6 +529,8 @@ public class PostProcessor{
                 }
 
                 builder.addTarget(mZSLReprocessImageReader.getSurface());
+                builder.addTarget(mController.getPreviewSurfaceForSession(
+                        mController.getMainCameraId()));
                 try {
                     if (!fusionStatus) {
                         mImageWriter.queueInputImage(image);
@@ -582,6 +590,7 @@ public class PostProcessor{
         PhotoModule.NamedImages.NamedEntity name = mNamedImages.getNextNameEntity();
         String title = (name == null) ? null : name.title;
         mActivity.getMediaSaveService().addRawImage(data, title, "raw");
+        image.close();
     }
 
     enum STATUS {
