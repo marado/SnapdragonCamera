@@ -16,6 +16,7 @@
 
 package com.android.camera;
 
+import android.hardware.Camera;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.view.Display;
@@ -121,6 +122,8 @@ import org.codeaurora.snapcam.R;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import static com.android.camera.CameraManager.CameraOpenErrorCallback;
 
@@ -168,7 +171,7 @@ public class CameraActivity extends Activity
     private static final int SWITCH_SAVE_PATH = 2;
 
     /** Permission request code */
-    private static final int PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION = 1;
+    private static final int PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION = 1;
 
     /** Whether onResume should reset the view to the preview. */
     private boolean mResetToPreviewOnResume = true;
@@ -186,6 +189,10 @@ public class CameraActivity extends Activity
     private static final int SUPPORT_SHARE_PANORAMA360 = 1 << 8;
     private static final int SUPPORT_SHOW_ON_MAP = 1 << 9;
     private static final int SUPPORT_ALL = 0xffffffff;
+
+    //HAL1 version code
+    private static final int CAMERA_HAL_API_VERSION_1_0 = 0x100;
+    private static final String CAMERA_API_1_SUPPORT = "camera_api_1_support";
 
     // Pie Setting Menu enabled
     private static boolean PIE_MENU_ENABLED = false;
@@ -394,6 +401,30 @@ public class CameraActivity extends Activity
 
         File localFile = new File(localData.getPath());
         return localFile.getName();
+    }
+
+    private boolean cameraAPICheck() {
+        boolean support = true;
+        try {
+            Method openMethod = Class.forName("android.hardware.Camera").getMethod(
+                    "openLegacy", int.class, int.class);
+            Camera camera = (android.hardware.Camera) openMethod.invoke(
+                    null, 0, CAMERA_HAL_API_VERSION_1_0);
+            camera.release();
+        } catch (ReflectiveOperationException e) {
+            e.printStackTrace();
+            Log.d(TAG,"cameraAPICheck message="+e.getCause().getLocalizedMessage());
+            if (e.getCause().getLocalizedMessage().indexOf("Unknown camera error") != -1) {
+                support = false;
+                Log.d(TAG,"cameraAPICheck support1 ="+support);
+            }
+        } finally {
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean(CAMERA_API_1_SUPPORT,support);
+            editor.commit();
+            return support;
+        }
     }
 
     private FilmStripView.Listener mFilmStripListener =
@@ -1493,6 +1524,14 @@ public class CameraActivity extends Activity
             return;
         }
 
+        boolean camera_api_1_support = true;
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        if (!sharedPreferences.contains(CAMERA_API_1_SUPPORT)) {
+            camera_api_1_support = cameraAPICheck();
+        } else {
+            camera_api_1_support = sharedPreferences.getBoolean(CAMERA_API_1_SUPPORT,true);
+        }
+
         mCursor = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 null, null, null, null);
         GcamHelper.init(getContentResolver());
@@ -1533,8 +1572,9 @@ public class CameraActivity extends Activity
                 moduleIndex = ModuleSwitcher.PHOTO_MODULE_INDEX;
             }
         }
-
         boolean cam2on = PersistUtil.getCamera2Mode();
+        if (!cam2on && !camera_api_1_support)
+            cam2on = true;
         CameraHolder.setCamera2Mode(this, cam2on);
         if (cam2on && (moduleIndex == ModuleSwitcher.PHOTO_MODULE_INDEX ||
                 moduleIndex == ModuleSwitcher.VIDEO_MODULE_INDEX))
@@ -2029,13 +2069,13 @@ public class CameraActivity extends Activity
     }
 
     public void requestLocationPermission() {
-        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
             Log.v(TAG, "Request Location permission");
             mCurrentModule.waitingLocationPermissionResult(true);
             requestPermissions(
-                new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
+                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
         }
     }
 
@@ -2043,7 +2083,7 @@ public class CameraActivity extends Activity
     public void onRequestPermissionsResult(int requestCode,
             String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION: {
+            case PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION: {
                 // If request is cancelled, the result arrays are empty.
                 mCurrentModule.waitingLocationPermissionResult(false);
                 if (grantResults.length > 0
