@@ -240,6 +240,10 @@ public class PostProcessor{
                     if(mIsZSLFallOff) {
                         if (mZSLQueue == null) return;
                         ZSLQueue.ImageItem foundImage = mZSLQueue.tryToGetMatchingItem();
+                        if (foundImage == null && mZSLFallOffResult != null) {
+                            long timestamp = mZSLFallOffResult.get(CaptureResult.SENSOR_TIMESTAMP);
+                            foundImage = mZSLQueue.tryToGetFallOffImage(timestamp);
+                        }
                         if (foundImage != null) {
                             reprocessImage(foundImage.getImage(),foundImage.getMetadata());
                             Image raw =  foundImage.getRawImage();
@@ -300,8 +304,6 @@ public class PostProcessor{
                 }
             } catch (IllegalStateException e) {
                 Log.e(TAG, "Max images has been already acquired. ");
-                mIsZSLFallOff = false;
-                mZSLFallOffResult = null;
             }
         }
 
