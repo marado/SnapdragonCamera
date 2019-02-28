@@ -286,6 +286,10 @@ public class CameraSettings {
 
     private static final String TAG = "CameraSettings";
 
+    private static final String RO_IS_LOW_MEM = "ro.config.low_ram";
+    private static final boolean IS_LOW_MEM =
+            android.os.SystemProperties.getBoolean(RO_IS_LOW_MEM, false);
+
     private final Context mContext;
     private final Parameters mParameters;
     private final CameraHolder.CameraInfo[] mCameraInfo;
@@ -433,7 +437,11 @@ public class CameraSettings {
             if (setCameraPictureSize(candidate, supported, parameters)) {
                 SharedPreferences.Editor editor = ComboPreferences
                         .get(context).edit();
-                editor.putString(KEY_PICTURE_SIZE, candidate);
+                if(IS_LOW_MEM){
+                    editor.putString(KEY_PICTURE_SIZE, "1920x1080");
+                }else{
+                    editor.putString(KEY_PICTURE_SIZE, candidate);
+                }
                 editor.apply();
                 return;
             }

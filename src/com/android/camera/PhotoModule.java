@@ -4094,7 +4094,7 @@ public class PhotoModule
         // Set picture size.
         String pictureSize = mPreferences.getString(
                 CameraSettings.KEY_PICTURE_SIZE, null);
-        if (pictureSize == null) {
+        if (pictureSize == null){
             CameraSettings.initialCameraPictureSize(mActivity, mParameters);
         } else {
             Size old_size = mParameters.getPictureSize();
