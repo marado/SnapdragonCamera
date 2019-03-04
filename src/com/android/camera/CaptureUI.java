@@ -65,6 +65,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import com.android.camera.imageprocessor.filter.BeautificationFilter;
 import com.android.camera.ui.AutoFitSurfaceView;
 import com.android.camera.ui.Camera2FaceView;
 import com.android.camera.ui.CameraControls;
@@ -178,6 +179,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     private Allocation mMonoDummyAllocation;
     private Allocation mMonoDummyOutputAllocation;
     private boolean mIsMonoDummyAllocationEverUsed = false;
+    private boolean mIsTouchAF = false;
 
     private int mScreenRatio = CameraUtil.RATIO_UNKNOWN;
     private int mTopMargin = 0;
@@ -560,7 +562,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
             public void run() {
                 if(value != null && !value.equals("0")) {
                     mMakeupButton.setImageResource(R.drawable.beautify_on);
-                    mMakeupSeekBarLayout.setVisibility(View.VISIBLE);
+                    mMakeupSeekBarLayout.setVisibility(View.GONE);
                 } else {
                     mMakeupButton.setImageResource(R.drawable.beautify);
                     mMakeupSeekBarLayout.setVisibility(View.GONE);
@@ -601,6 +603,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
 
     public void initializeProMode(boolean promode) {
         mCameraControls.setProMode(promode);
+        mCameraControls.setFixedFocus(mSettingsManager.isFixedFocus(mModule.getMainCameraId()));
         if (promode)
             mVideoButton.setVisibility(View.INVISIBLE);
         else if (mModule.getCurrentIntentMode() == CaptureModule.INTENT_MODE_NORMAL)
@@ -943,7 +946,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         mSceneModeSwitcher.setVisibility(View.INVISIBLE);
         String value = mSettingsManager.getValue(SettingsManager.KEY_MAKEUP);
         if(value != null && value.equals("0")) {
-            mMakeupButton.setVisibility(View.INVISIBLE);
+            mMakeupButton.setVisibility(View.GONE);
         }
         mIsVideoUI = true;
         mPauseButton.setVisibility(View.VISIBLE);
@@ -954,7 +957,7 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         mFrontBackSwitcher.setVisibility(View.VISIBLE);
         mFilterModeSwitcher.setVisibility(View.VISIBLE);
         mSceneModeSwitcher.setVisibility(View.VISIBLE);
-        mMakeupButton.setVisibility(View.VISIBLE);
+        mMakeupButton.setVisibility(View.GONE);
         mIsVideoUI = false;
         mPauseButton.setVisibility(View.INVISIBLE);
         //exit recording mode needs to refresh scene mode label.
@@ -1174,12 +1177,16 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
 
     public void hideCameraControls(boolean hide) {
         final int status = (hide) ? View.INVISIBLE : View.VISIBLE;
-        if (mFlashButton != null) mFlashButton.setVisibility(status);
+        if (mFlashButton != null) {
+            mFlashButton.setVisibility(
+                    hide || !mSettingsManager.isFlashSupported(mModule.getMainCameraId()) ?
+                    View.INVISIBLE : View.VISIBLE);
+        }
         if (mFrontBackSwitcher != null) mFrontBackSwitcher.setVisibility(status);
         if (mSceneModeSwitcher != null) mSceneModeSwitcher.setVisibility(status);
         if (mFilterModeSwitcher != null) mFilterModeSwitcher.setVisibility(status);
         if (mFilterModeSwitcher != null) mFilterModeSwitcher.setVisibility(status);
-        if (mMakeupButton != null) mMakeupButton.setVisibility(status);
+        if (mMakeupButton != null) mMakeupButton.setVisibility(View.GONE);
     }
 
     public void initializeControlByIntent() {
@@ -1242,8 +1249,10 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
              enableMakeupMenu = false;
              enableFilterMenu = false;
         }
-
         mMakeupButton.setEnabled(enableMakeupMenu);
+        if(!BeautificationFilter.isSupportedStatic()) {
+            mMakeupButton.setVisibility(View.GONE);
+        }
         mFilterModeSwitcher.setEnabled(enableFilterMenu);
         mSceneModeSwitcher.setEnabled(enableSceneMenu);
     }
@@ -1384,8 +1393,17 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         showUIAfterCountDown();
     }
 
-    public void startCountDown(int sec, boolean playSound) {
+    public void initCountDownView() {
         if (mCountDownView == null) initializeCountDown();
+    }
+
+    public void releaseSoundPool() {
+        if (mCountDownView != null) {
+            mCountDownView.releaseSoundPool();
+        }
+    }
+
+    public void startCountDown(int sec, boolean playSound) {
         mCountDownView.startCountDown(sec, playSound);
         hideUIWhileCountDown();
     }
@@ -1429,7 +1447,8 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
             return mTrackingFocusRenderer;
         }
 
-        return (mFaceView != null && mFaceView.faceExists()) ? mFaceView : mPieRenderer;
+        return (mFaceView != null && mFaceView.faceExists() && !mIsTouchAF) ?
+                mFaceView : mPieRenderer;
     }
 
     @Override
@@ -1445,11 +1464,13 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     public void clearFocus() {
         FocusIndicator indicator = getFocusIndicator();
         if (indicator != null) indicator.clear();
+        mIsTouchAF = false;
     }
 
     @Override
     public void setFocusPosition(int x, int y) {
         mPieRenderer.setFocus(x, y);
+        mIsTouchAF = true;
     }
 
     @Override
@@ -1480,13 +1501,15 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     public void resumeFaceDetection() {
     }
 
-    public void onStartFaceDetection(int orientation, boolean mirror, Rect cameraBound) {
+    public void onStartFaceDetection(int orientation, boolean mirror, Rect cameraBound,
+                                     Rect originalCameraBound) {
         mFaceView.setBlockDraw(false);
         mFaceView.clear();
         mFaceView.setVisibility(View.VISIBLE);
         mFaceView.setDisplayOrientation(orientation);
         mFaceView.setMirror(mirror);
         mFaceView.setCameraBound(cameraBound);
+        mFaceView.setOriginalCameraBound(originalCameraBound);
         mFaceView.setZoom(mModule.getZoomValue());
         mFaceView.resume();
     }

@@ -411,7 +411,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
             try {
                 newValue = dependencyList.getString(keyToProcess);
             } catch (JSONException e) {
-                e.printStackTrace();
+                Log.w(TAG, "initializeValueMap JSONException No value for:" + keyToProcess);
                 continue;
             }
             Values values = new Values(getValue(keyToProcess), newValue);
@@ -480,7 +480,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
             try {
                 newValue = dependencyList.getString(keyToTurnOff);
             } catch (JSONException e) {
-                e.printStackTrace();
+                Log.w(TAG, "checkDependencyAndUpdate JSONException No value for:" + keyToTurnOff);
                 continue;
             }
             if (newValue == null) continue;
@@ -701,6 +701,10 @@ public class SettingsManager implements ListMenu.SettingsListener {
             if (!isFlashAvailable(mCameraId)) {
                 removePreference(mPreferenceGroup, KEY_FLASH_MODE);
                 mFilteredKeys.add(flashMode.getKey());
+            }
+            // Front Camera does not support video
+            if (mCameraId == CaptureModule.FRONT_ID) {
+                removePreference(mPreferenceGroup, KEY_VIDEO_FLASH_MODE);
             }
         }
 
@@ -1630,7 +1634,8 @@ public class SettingsManager implements ListMenu.SettingsListener {
     }
 
     public boolean getQcfaPrefEnabled() {
-        String qcfa = getValue(KEY_QCFA);
+        ListPreference qcfaPref = mPreferenceGroup.findPreference(KEY_QCFA);
+        String qcfa = qcfaPref.getValue();
         if(qcfa != null && qcfa.equals("enable")) {
             return true;
         }
@@ -1821,7 +1826,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         try {
             return mDependency.getJSONObject(key);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.w(TAG, "getDependencyMapForKey JSONException No value for:" + key);
             return null;
         }
     }
@@ -1835,7 +1840,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         try {
             return dependencyMap.getJSONObject(value);
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.w(TAG, "getDependencyList JSONException No value for:" + key);
             return null;
         }
     }
