@@ -91,7 +91,7 @@ public class PhotoUI implements PieListener,
         CameraManager.CameraFaceDetectionCallback {
 
     private static final String TAG = "CAM_UI";
-    private static final String FILP_PREVIEW ="persist.vendor.snapcam.flip_pre";
+    private static final String FILP_PREVIEW ="persist.sys.snapcam.flip_pre";
     private static final boolean sFlipPreview =
             SystemProperties.getBoolean(FILP_PREVIEW,false);
     private int mDownSampleFactor = 4;
