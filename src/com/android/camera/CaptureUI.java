@@ -604,8 +604,10 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
     public void initializeProMode(boolean promode) {
         mCameraControls.setProMode(promode);
         mCameraControls.setFixedFocus(mSettingsManager.isFixedFocus(mModule.getMainCameraId()));
-        if (promode)
+        if (promode) {
             mVideoButton.setVisibility(View.INVISIBLE);
+            mFlashButton.setVisibility(View.INVISIBLE);
+        }
         else if (mModule.getCurrentIntentMode() == CaptureModule.INTENT_MODE_NORMAL)
             mVideoButton.setVisibility(View.VISIBLE);
     }
@@ -717,6 +719,10 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         mFrontBackSwitcher.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (!mModule.getCameraModeSwitcherAllowed()) {
+                    return;
+                }
+                mModule.setCameraModeSwitcherAllowed(false);
                 removeFilterMenu(false);
 
                 String value = mSettingsManager.getValue(SettingsManager.KEY_CAMERA_ID);
@@ -1273,6 +1279,10 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
         }
     }
 
+    public boolean isShutterEnabled() {
+        return mShutterButton.isEnabled();
+    }
+
     /**
      * Enables or disables the video button.
      */
@@ -1447,8 +1457,17 @@ public class CaptureUI implements FocusOverlayManager.FocusUI,
             return mTrackingFocusRenderer;
         }
 
-        return (mFaceView != null && mFaceView.faceExists() && !mIsTouchAF) ?
-                mFaceView : mPieRenderer;
+        FocusIndicator focusIndicator;
+        if (mFaceView != null && mFaceView.faceExists() && !mIsTouchAF) {
+            if (mPieRenderer != null) {
+                mPieRenderer.clear();
+            }
+            focusIndicator = mFaceView;
+        } else {
+            focusIndicator = mPieRenderer;
+        }
+
+        return focusIndicator;
     }
 
     @Override
