@@ -18,6 +18,7 @@ package com.android.camera;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
@@ -430,6 +431,7 @@ public class CameraSettings {
         // When launching the camera app first time, we will set the picture
         // size to the first one in the list defined in "arrays.xml" and is also
         // supported by the driver.
+
         List<Size> supported = parameters.getSupportedPictureSizes();
         if (supported == null) return;
         for (String candidate : context.getResources().getStringArray(
@@ -437,7 +439,9 @@ public class CameraSettings {
             if (setCameraPictureSize(candidate, supported, parameters)) {
                 SharedPreferences.Editor editor = ComboPreferences
                         .get(context).edit();
-                if(IS_LOW_MEM){
+                boolean totalMemIs512M = totalSystemMemoryIs512M(context);
+                if(IS_LOW_MEM && totalMemIs512M){
+                    Log.e(TAG, "total system memory is 512M,so set default picture size to 2M");
                     editor.putString(KEY_PICTURE_SIZE, "1920x1080");
                 }else{
                     editor.putString(KEY_PICTURE_SIZE, candidate);
@@ -448,6 +452,15 @@ public class CameraSettings {
         }
         Log.e(TAG, "No supported picture size found");
     }
+
+    private static boolean totalSystemMemoryIs512M(Context context){
+        ActivityManager activityManager = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo() ;
+        activityManager.getMemoryInfo(memoryInfo) ;
+        boolean is512M = memoryInfo.totalMem < 512 * 1024 * 1024 ;
+        return is512M ;
+    }
+
 
     public static void removePreferenceFromScreen(
             PreferenceGroup group, String key) {
