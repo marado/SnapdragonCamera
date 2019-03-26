@@ -85,6 +85,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
 
     public static final int SCENE_MODE_AUTO_INT = 0;
     public static final int SCENE_MODE_NIGHT_INT = 5;
+    public static final int SCENE_MODE_HDR_INT = 18;
 
     // Custom-Scenemodes start from 100
     public static final int SCENE_MODE_CUSTOM_START = 100;
@@ -310,14 +311,23 @@ public class SettingsManager implements ListMenu.SettingsListener {
         notifyListeners(changed);
     }
 
-    public void updateQcfaPictureSize() {
+    public void updatePictureAndVideoSize() {
         ListPreference picturePref = mPreferenceGroup.findPreference(KEY_PICTURE_SIZE);
+        ListPreference videoQualityPref = mPreferenceGroup.findPreference(KEY_VIDEO_QUALITY);
         if (picturePref != null) {
             picturePref.setEntries(mContext.getResources().getStringArray(
                     R.array.pref_camera2_picturesize_entries));
             picturePref.setEntryValues(mContext.getResources().getStringArray(
                     R.array.pref_camera2_picturesize_entryvalues));
             filterUnsupportedOptions(picturePref, getSupportedPictureSize(
+                    getCurrentCameraId()));
+        }
+        if (videoQualityPref != null) {
+            videoQualityPref.setEntries(mContext.getResources().getStringArray(
+                    R.array.pref_camera2_video_quality_entries));
+            videoQualityPref.setEntryValues(mContext.getResources().getStringArray(
+                    R.array.pref_camera2_video_quality_entryvalues));
+            filterUnsupportedOptions(videoQualityPref,getSupportedVideoSize(
                     getCurrentCameraId()));
         }
     }
@@ -356,6 +366,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
         initDependencyTable();
         initializeValueMap();
         filterChromaflashPictureSizeOptions();
+        filterHeifSizeOptions();
     }
 
     private Size parseSize(String value) {
@@ -595,7 +606,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
     public void setFocusDistance(String key, boolean forceNotify,float value, float minFocus) {
         boolean isSuccess = false;
         if (value >= 0) {
-            isSuccess = setFocusValue(key, value);
+            isSuccess = setFocusValue(key, value * minFocus);
         }
         if (isSuccess || forceNotify) {
             List<SettingState> list = new ArrayList<>();
@@ -860,6 +871,8 @@ public class SettingsManager implements ListMenu.SettingsListener {
             filterVideoEncoderOptions();
         } else if (pref.getKey().equals(KEY_SCENE_MODE)) {
             filterChromaflashPictureSizeOptions();
+        } else if (pref.getKey().equals(KEY_PICTURE_FORMAT)) {
+            filterHeifSizeOptions();
         }
     }
 
@@ -1023,7 +1036,22 @@ public class SettingsManager implements ListMenu.SettingsListener {
         }
     }
 
-    private void filterHFROptions() {
+    private void filterHeifSizeOptions() {
+        ListPreference picturePref = mPreferenceGroup.findPreference(KEY_PICTURE_SIZE);
+        ListPreference videoQualityPref = mPreferenceGroup.findPreference(KEY_VIDEO_QUALITY);
+        if (filterUnsupportedOptions(picturePref, getSupportedPictureSize(
+                getCurrentCameraId()))) {
+            mFilteredKeys.add(picturePref.getKey());
+        }
+        if (filterUnsupportedOptions(videoQualityPref, getSupportedVideoSize(
+                getCurrentCameraId()))) {
+            mFilteredKeys.add(videoQualityPref.getKey());
+        }
+    }
+
+
+
+private void filterHFROptions() {
         ListPreference hfrPref = mPreferenceGroup.findPreference(KEY_VIDEO_HIGH_FRAME_RATE);
         if (hfrPref != null) {
             hfrPref.reloadInitialEntriesAndEntryValues();
@@ -1290,6 +1318,7 @@ public class SettingsManager implements ListMenu.SettingsListener {
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size[] sizes = map.getOutputSizes(ImageFormat.JPEG);
         List<String> res = new ArrayList<>();
+        boolean isHeifEnabled = getSavePictureFormat() == HEIF_FORMAT;
 
         if (getQcfaPrefEnabled() && getIsSupportedQcfa(cameraId)) {
             res.add(getSupportedQcfaDimension(cameraId));
@@ -1297,6 +1326,9 @@ public class SettingsManager implements ListMenu.SettingsListener {
 
         if (sizes != null) {
             for (int i = 0; i < sizes.length; i++) {
+                if (isHeifEnabled && (Math.min(sizes[i].getWidth(),sizes[i].getHeight()) < 512)) {
+                    continue;
+                }
                 res.add(sizes[i].toString());
             }
         }
@@ -1329,16 +1361,24 @@ public class SettingsManager implements ListMenu.SettingsListener {
     }
 
     private List<String> getSupportedVideoSize(int cameraId) {
+        int id = 0;
+        if (cameraId == 0 || cameraId == 1) {
+            id = cameraId;
+        }
         StreamConfigurationMap map = mCharacteristics.get(cameraId).get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size[] sizes = map.getOutputSizes(MediaRecorder.class);
+        boolean isHeifEnabled = getSavePictureFormat() == HEIF_FORMAT;
         List<String> res = new ArrayList<>();
         for (int i = 0; i < sizes.length; i++) {
+            if (isHeifEnabled && (Math.min(sizes[i].getWidth(),sizes[i].getHeight()) < 512)) {
+                continue;
+            }
             if (!CameraSettings.VIDEO_QUALITY_TABLE.containsKey(sizes[i].toString())) {
                 continue;
             }
             int profile = CameraSettings.VIDEO_QUALITY_TABLE.get(sizes[i].toString());
-            if (!CamcorderProfile.hasProfile(cameraId, profile)) {
+            if (!CamcorderProfile.hasProfile(id, profile)) {
                 continue;
             }
             if (getSupportedVideoEncoders(sizes[i]).size() <= 0) {
@@ -1424,7 +1464,10 @@ public class SettingsManager implements ListMenu.SettingsListener {
             modes.add(String.valueOf(SCENE_MODE_BOKEH_INT));
         }
         for (int mode : sceneModes) {
-            modes.add(String.valueOf(mode));
+            //remove scene mode like "Sunset", "Night" such as, only keep "HDR" mode
+            if (mode == SCENE_MODE_HDR_INT) {
+                modes.add(String.valueOf(mode));
+            }
         }
         return modes;
     }
