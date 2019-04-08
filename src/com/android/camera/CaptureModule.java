@@ -342,6 +342,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private SettingsManager mSettingsManager;
     private long SECONDARY_SERVER_MEM;
     private boolean mLongshotActive = false;
+    private boolean mSingleshotActive = false;
     private CameraCharacteristics mMainCameraCharacteristics;
     private int mDisplayRotation;
     private int mDisplayOrientation;
@@ -898,6 +899,11 @@ public class CaptureModule implements CameraModule, PhotoController,
                             lockExposure(id);
                         }
                     }
+                } else if (aeState == null ||
+                        aeState == CaptureResult.CONTROL_AE_STATE_INACTIVE) {
+                    // AE Mode is OFF, the AE state is always CONTROL_AE_STATE_INACTIVE
+                    // then begain capture and ignore lock AE.
+                    checkAfAeStatesAndCapture(id);
                 } else if (mPrecaptureRequestHashCode[id] == result.getRequest().hashCode()) {
                     Log.i(TAG, "AE trigger request result received, but not converged");
                     mPrecaptureRequestHashCode[id] = 0;
@@ -1559,9 +1565,15 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void takePicture() {
         Log.d(TAG, "takePicture");
         mUI.enableShutter(false);
-        if (mSettingsManager.isZSLInHALEnabled()) {
+        if ((mSettingsManager.isZSLInHALEnabled() &&
+                !isFlashOn(getMainCameraId()) && (mPreviewCaptureResult != null &&
+                mPreviewCaptureResult.get(CaptureResult.CONTROL_AE_STATE) !=
+                        CameraMetadata.CONTROL_AE_STATE_FLASH_REQUIRED &&
+                mPreviewCaptureResult.getRequest().
+                        get(CaptureRequest.CONTROL_AE_LOCK) != Boolean.TRUE)) ||
+                isActionImageCapture()) {
             takeZSLPictureInHAL();
-        }else {
+        } else {
             if (isBackCamera()) {
                 switch (getCameraMode()) {
                     case DUAL_MODE:
@@ -1596,6 +1608,10 @@ public class CaptureModule implements CameraModule, PhotoController,
                 lockFocus(cameraId);
             }
         }
+    }
+
+    private boolean isActionImageCapture() {
+        return mIntentMode == INTENT_MODE_CAPTURE;
     }
 
     private boolean takeZSLPicture(int cameraId) {
@@ -1773,7 +1789,14 @@ public class CaptureModule implements CameraModule, PhotoController,
                 addPreviewSurface(captureBuilder, null, id);
             }
             VendorTagUtil.setCdsMode(captureBuilder, 0);// CDS 0-OFF, 1-ON, 2-AUTO
+            applyAFRegions(captureBuilder, id);
+            applyAERegions(captureBuilder, id);
             applySettingsForCapture(captureBuilder, id);
+
+            if (mUI.getCurrentProMode() == ProMode.MANUAL_MODE) {
+                float value = mSettingsManager.getFocusValue(SettingsManager.KEY_FOCUS_DISTANCE);
+                applyFocusDistance(captureBuilder, String.valueOf(value));
+            }
 
             if(isClearSightOn()) {
                 captureStillPictureForClearSight(id);
@@ -1902,6 +1925,13 @@ public class CaptureModule implements CameraModule, PhotoController,
                                 @Override
                                 public void run() {
                                     mUI.doShutterAnimation();
+                                }
+                            });
+                        } else {
+                            mActivity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mUI.enableShutter(true);
                                 }
                             });
                         }
@@ -2241,6 +2271,10 @@ public class CaptureModule implements CameraModule, PhotoController,
                                     });
                                 }
                                 Log.d(TAG, "image available for cam: " + mCamId);
+                                if (!mLongshotActive && !mSingleshotActive) {
+                                    return;
+                                }
+
                                 Image image = reader.acquireNextImage();
 
                                 if (isMpoOn()) {
@@ -2831,6 +2865,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mState[i] = STATE_PREVIEW;
         }
         mLongshotActive = false;
+        mSingleshotActive = false;
         updateZoom();
         updatePreviewSurfaceReadyState(false);
     }
@@ -3650,6 +3685,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mLongshotActive = false;
             mPostProcessor.stopLongShot();
             try{
+                mCurrentSession.abortCaptures();
                 setRepeatingBurstForZSL(getMainCameraId());
             }catch (CameraAccessException|IllegalStateException e){
                 e.printStackTrace();
@@ -4553,6 +4589,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             if (mUI.isCountingDown()) {
                 mUI.cancelCountDown();
             }
+            mSingleshotActive = true;
             if (seconds > 0) {
                 mUI.startCountDown(seconds, true);
             } else {
@@ -4617,6 +4654,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
             Log.d(TAG, "Start Longshot");
             mLongshotActive = true;
+            mSingleshotActive = false;
             try{
                 setRepeatingBurstForZSL(getMainCameraId());
             }catch (CameraAccessException|IllegalStateException e){
@@ -5196,6 +5234,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void applyFlash(CaptureRequest.Builder request, String value) {
         String redeye = mSettingsManager.getValue(SettingsManager.KEY_REDEYE_REDUCTION);
+        if(DEBUG) Log.d(TAG, "applyFlash: " + value);
         if (redeye != null && redeye.equals("on") && !mLongshotActive) {
             request.set(CaptureRequest.CONTROL_AE_MODE,
                     CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH_REDEYE);
