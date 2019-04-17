@@ -535,6 +535,8 @@ public class PostProcessor{
                 }
 
                 builder.addTarget(mZSLReprocessImageReader.getSurface());
+                builder.addTarget(mController.getPreviewSurfaceForSession(
+                        mController.getMainCameraId()));
                 try {
                     if (!fusionStatus) {
                         mImageWriter.queueInputImage(image);
@@ -1191,7 +1193,7 @@ public class PostProcessor{
                     } else {
                         mActivity.getMediaSaveService().addImage(
                                 bytes, title, date, null, image.getCropRect().width(), image.getCropRect().height(),
-                                orientation, null, mController.getMediaSavedListener(), mActivity.getContentResolver(), "jpeg");
+                                orientation, exif, mController.getMediaSavedListener(), mActivity.getContentResolver(), "jpeg");
                         mController.updateThumbnailJpegData(bytes);
                         image.close();
                     }
