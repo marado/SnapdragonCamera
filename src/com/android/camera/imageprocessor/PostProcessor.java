@@ -507,7 +507,7 @@ public class PostProcessor{
                         CaptureRequest.EDGE_MODE_HIGH_QUALITY);
                 builder.set(CaptureRequest.NOISE_REDUCTION_MODE,
                         CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY);
-                VendorTagUtil.setCdsMode(builder, 0); // CDS 0-OFF, 1-ON, 2-AUTO
+                //VendorTagUtil.setCdsMode(builder, 0); // CDS 0-OFF, 1-ON, 2-AUTO
                 VendorTagUtil.setJpegCropEnable(builder, (byte)1);
                 Rect cropRect = image.getCropRect();
                 if(cropRect == null ||
@@ -1195,8 +1195,8 @@ public class PostProcessor{
                                 bytes, title, date, null, image.getCropRect().width(), image.getCropRect().height(),
                                 orientation, exif, mController.getMediaSavedListener(), mActivity.getContentResolver(), "jpeg");
                         mController.updateThumbnailJpegData(bytes);
-                        image.close();
                     }
+                    image.close();
                 }
             });
         }
