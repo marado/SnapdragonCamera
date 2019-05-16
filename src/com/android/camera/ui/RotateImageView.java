@@ -51,6 +51,8 @@ public class RotateImageView extends TwoStateImageView implements Rotatable {
     private long mAnimationEndTime = 0;
     private boolean mNaturalPortrait = CameraUtil.isDefaultToPortrait(
                                               (Activity) getContext());
+    private int mRotationCompensateAngle = CameraUtil.getRotationCompsensation(
+            (Activity) getContext());
 
     public RotateImageView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -155,7 +157,7 @@ public class RotateImageView extends TwoStateImageView implements Rotatable {
             canvas.scale(ratio, ratio, width / 2.0f, height / 2.0f);
         }
         canvas.translate(left + width / 2, top + height / 2);
-        canvas.rotate(-mCurrentDegree);
+        canvas.rotate(-mCurrentDegree + mRotationCompensateAngle);
         canvas.translate(-w / 2, -h / 2);
         drawable.draw(canvas);
         canvas.restoreToCount(saveCount);

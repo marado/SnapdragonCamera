@@ -468,6 +468,25 @@ public class CameraUtil {
         return naturalWidth < naturalHeight;
     }
 
+    public static int getRotationCompsensation(Activity activity) {
+        int angle = 0;
+        Display currentDisplay = activity.getWindowManager().getDefaultDisplay();
+        int orientation = currentDisplay.getRotation();
+        switch (orientation) {
+            case Surface.ROTATION_90:
+                angle = 270;
+                break;
+            case Surface.ROTATION_180:
+                angle = 180;
+                break;
+            case Surface.ROTATION_270:
+                angle = 90;
+                break;
+        }
+
+        return angle;
+    }
+
     public static int getDisplayOrientation(int degrees, int cameraId) {
         // See android.hardware.Camera.setDisplayOrientation for
         // documentation.

@@ -50,7 +50,6 @@
             android:label="@string/snapcam_app_name"
             android:launchMode="singleTask"
             android:logo="@mipmap/ic_launcher_gallery"
-            android:screenOrientation="portrait"
             android:taskAffinity="com.android.camera.CameraActivity"
             android:theme="@style/Theme.Camera"
             android:windowSoftInputMode="stateAlwaysHidden|adjustPan"
