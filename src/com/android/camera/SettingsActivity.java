@@ -137,6 +137,10 @@ public class SettingsActivity extends PreferenceActivity {
                     if (pref.getKey().equals(SettingsManager.KEY_MANUAL_EXPOSURE)) {
                         UpdateManualExposureSettings();
                     }
+
+                    if (pref.getKey().equals(SettingsManager.KEY_VIDEO_HIGH_FRAME_RATE)) {
+                        updateDIS();
+                    }
                 }
             }
         }
@@ -476,6 +480,19 @@ public class SettingsActivity extends PreferenceActivity {
         }
     }
 
+    private void updateDIS() {
+        String hfr = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_HIGH_FRAME_RATE);
+        SwitchPreference disPref = (SwitchPreference) findPreference(
+                mSettingsManager.KEY_DIS);
+        if (hfr != null && !hfr.equals("off") && Integer.valueOf(hfr.substring(3)) > 60) {
+            disPref.setChecked(false);
+            disPref.setEnabled(false);
+            mSettingsManager.setValue(mSettingsManager.KEY_DIS, "off");
+        } else {
+            disPref.setEnabled(true);
+        }
+    }
+
     private void handleManualGainsPriority(final LinearLayout linear, final TextView gainsText,
                                            final EditText gainsInput, final SharedPreferences pref) {
         SharedPreferences.Editor editor = pref.edit();
@@ -565,8 +582,16 @@ public class SettingsActivity extends PreferenceActivity {
                                 privateCounter++;
                                 if (privateCounter >= DEVELOPER_MENU_TOUCH_COUNT) {
                                     mDeveloperMenuEnabled = true;
-                                    mSharedPreferences.edit().putBoolean(SettingsManager.KEY_DEVELOPER_MENU, true).apply();
-                                    Toast.makeText(SettingsActivity.this, "Camera developer option is enabled now", Toast.LENGTH_SHORT).show();
+                                    mSharedPreferences.edit().putBoolean(
+                                            SettingsManager.KEY_DEVELOPER_MENU, true).apply();
+                                    SharedPreferences sp = SettingsActivity.this.
+                                            getSharedPreferences(ComboPreferences.
+                                                getGlobalSharedPreferencesName(
+                                                    SettingsActivity.this), Context.MODE_PRIVATE);
+                                    sp.edit().putBoolean(
+                                            SettingsManager.KEY_DEVELOPER_MENU, true).apply();
+                                    Toast.makeText(SettingsActivity.this, "Camera developer " +
+                                            "option is enabled now", Toast.LENGTH_SHORT).show();
                                     recreate();
                                 }
                             } else {
@@ -574,7 +599,7 @@ public class SettingsActivity extends PreferenceActivity {
                             }
                         }
 
-                        if ( preference.getKey().equals(SettingsManager.KEY_RESTORE_DEFAULT) ) {
+                        if (preference.getKey().equals(SettingsManager.KEY_RESTORE_DEFAULT)) {
                             onRestoreDefaultSettingsClick();
                         }
                         return false;
