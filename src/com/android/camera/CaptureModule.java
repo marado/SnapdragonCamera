@@ -1646,6 +1646,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             cameraId = SWITCH_ID == -1? FRONT_ID : SWITCH_ID;
         }
         captureStillPicture(cameraId);
+        captureStillPictureForHDRTest(cameraId);
     }
 
     public boolean isLongShotActive() {
@@ -3709,7 +3710,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                 mCurrentSession.abortCaptures();
                 setRepeatingBurstForZSL(getMainCameraId());
             }catch (CameraAccessException|IllegalStateException e){
-                e.printStackTrace();
+                if(DEBUG)e.printStackTrace();
             }
             mUI.enableVideo(!mLongshotActive);
         }
@@ -4298,8 +4299,8 @@ public class CaptureModule implements CameraModule, PhotoController,
             try {
                 mCurrentSession.abortCaptures();
                 Log.d(TAG, "stopRecordingVideo call abortCaptures ");
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
+            } catch (CameraAccessException|IllegalStateException e) {
+                if(DEBUG)e.printStackTrace();
             }
         }
         if (!mPaused) {
