@@ -943,7 +943,7 @@ public class CameraSettings {
                 supportedSceneModes.add(mContext.getString(R.string
                             .pref_camera_advanced_feature_value_optizoom_on));
             }
-            if (SystemProperties.getInt("persist.vendor.snapcam.bokeh", 0) == 1 &&
+            if (SystemProperties.getInt("persist.sys.snapcam.bokeh", 0) == 1 &&
                     mCameraId == CameraHolder.instance().getBackCameraId()) {
                 supportedSceneModes.add(mContext.getString(R.string
                         .pref_camera_scenemode_entry_value_snapshotbokeh));
@@ -988,7 +988,7 @@ public class CameraSettings {
             removePreference(group, cameraHdrPlus.getKey());
         }
 
-        if (SystemProperties.getBoolean("persist.vendor.env.camera.saveinsd", false)) {
+        if (SystemProperties.getBoolean("persist.sys.env.camera.saveinsd", false)) {
             final String CAMERA_SAVEPATH_SDCARD = "1";
             final int CAMERA_SAVEPATH_SDCARD_IDX = 1;
             final int CAMERA_SAVEPATH_PHONE_IDX = 0;
