@@ -703,8 +703,11 @@ public class CaptureModule implements CameraModule, PhotoController,
         public void onCaptureBufferLost(CameraCaptureSession session, CaptureRequest request,
                                         Surface target, long frameNumber) {
             super.onCaptureBufferLost(session, request, target, frameNumber);
+            if (mPaused) {
+                return;
+            }
             int id = (int) request.getTag();
-            if (target == mImageReader[id].getSurface()) {
+            if (mImageReader[id]!= null && target == mImageReader[id].getSurface()) {
                 mBufferLostFrameNumbers[mBufferLostIndex] = frameNumber;
                 mBufferLostIndex = ++mBufferLostIndex % mBufferLostFrameNumbers.length;
             }
@@ -2618,6 +2621,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
                     if (mCaptureSession[i] != null) {
                         if (isAbortCapturesEnable()) {
+                            mCaptureSession[i].stopRepeating();
                             mCaptureSession[i].abortCaptures();
                             Log.d(TAG, "Closing camera call abortCaptures ");
                         }
@@ -3878,6 +3882,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mUI.hideUIwhileRecording();
             mCameraHandler.removeMessages(CANCEL_TOUCH_FOCUS, mCameraId[cameraId]);
             if (isAbortCapturesEnable() && (mCaptureSession[cameraId] != null)) {
+                mCaptureSession[cameraId].stopRepeating();
                 mCaptureSession[cameraId].abortCaptures();
                 Log.d(TAG, "startRecordingVideo call abortCaptures befor close preview ");
             }
@@ -4337,6 +4342,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         if (isAbortCapturesEnable()) {
             try {
                 if (mCurrentSession != null) {
+                    mCurrentSession.stopRepeating();
                     mCurrentSession.abortCaptures();
                     Log.d(TAG, "stopRecordingVideo call abortCaptures ");
                 }
