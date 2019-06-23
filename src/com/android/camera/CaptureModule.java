@@ -4158,6 +4158,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         applyZoom(builder, cameraId);
         applyVideoHDR(builder);
         applyEarlyPCR(builder);
+        enableSat(builder, cameraId);
     }
 
     private void applyVideoHDR(CaptureRequest.Builder builder) {
@@ -5212,8 +5213,6 @@ public class CaptureModule implements CameraModule, PhotoController,
             }
         }
         if (!promode || value.equals("auto")) {
-            VendorTagUtil.setIsoExpPrioritySelectPriority(request, 0);
-            VendorTagUtil.setIsoExpPriority(request, 0L);
             if (request.get(CaptureRequest.SENSOR_EXPOSURE_TIME) == null) {
                 request.set(CaptureRequest.SENSOR_EXPOSURE_TIME, mIsoExposureTime);
             }
