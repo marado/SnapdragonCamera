@@ -100,6 +100,7 @@ public class PostProcessor{
     public static final int FILTER_CHROMAFLASH = 6;
     public static final int FILTER_BLURBUSTER = 7;
     public static final int FILTER_MAX = 8;
+    public static final double FALLOFF_DELAY = 2 * 10e6;
 
     //BestPicture requires 10 which is the biggest among filters
     private static final int MAX_REQUIRED_IMAGE_NUM = 3;
@@ -238,7 +239,13 @@ public class PostProcessor{
                     }
 
                     if(mIsZSLFallOff) {
-                        ZSLQueue.ImageItem foundImage = mZSLQueue.tryToGetMatchingItem();
+                        if (mZSLQueue == null) return;
+                        ZSLQueue.ImageItem foundImage = null;
+                        if (mZSLFallOffResult != null) {
+                            long timestamp = mZSLFallOffResult.get(CaptureResult.SENSOR_TIMESTAMP);
+                            foundImage = mZSLQueue.tryToGetFallOffImage(mZSLFallOffResult,
+                                    timestamp + FALLOFF_DELAY);
+                        }
                         if (foundImage != null) {
                             reprocessImage(foundImage.getImage(),foundImage.getMetadata());
                             Image raw =  foundImage.getRawImage();
@@ -299,8 +306,6 @@ public class PostProcessor{
                 }
             } catch (IllegalStateException e) {
                 Log.e(TAG, "Max images has been already acquired. ");
-                mIsZSLFallOff = false;
-                mZSLFallOffResult = null;
             }
         }
 
@@ -358,9 +363,8 @@ public class PostProcessor{
             }
             if(mIsZSLFallOff) {
                 mZSLFallOffResult = result;
-            } else {
-                onMetaAvailable(result);
             }
+            onMetaAvailable(result);
         }
 
         @Override
@@ -401,6 +405,8 @@ public class PostProcessor{
     }
 
     public boolean takeZSLPicture() {
+        if (mZSLQueue == null)
+            return false;
         mController.setJpegImageData(null);
         ZSLQueue.ImageItem imageItem = mZSLQueue.tryToGetMatchingItem();
         if(mController.getPreviewCaptureResult() == null ||
@@ -479,6 +485,11 @@ public class PostProcessor{
                 image.close();
                 return;
             }
+            String value = SettingsManager.getInstance().getValue(SettingsManager.KEY_JPEG_QUALITY);
+            int jpegQuality = 85;
+            if (value != null) {
+                jpegQuality = mController.getQualityNumber(value);
+            }
             if (DEBUG_ZSL) Log.d(TAG, "reprocess Image request " + image.getTimestamp());
             CaptureRequest.Builder builder = null;
             try {
@@ -487,6 +498,7 @@ public class PostProcessor{
                         mCameraDevice.createReprocessCaptureRequest(metadata);
                 builder.set(CaptureRequest.JPEG_ORIENTATION,
                             CameraUtil.getJpegRotation(mController.getMainCameraId(), mController.getDisplayOrientation()));
+                builder.set(CaptureRequest.JPEG_QUALITY, (byte) jpegQuality);
                 builder.set(CaptureRequest.JPEG_THUMBNAIL_SIZE, mController.getThumbSize());
                 builder.set(CaptureRequest.JPEG_THUMBNAIL_QUALITY, (byte)80);
                 builder.set(CaptureRequest.COLOR_CORRECTION_ABERRATION_MODE,
@@ -582,6 +594,7 @@ public class PostProcessor{
         PhotoModule.NamedImages.NamedEntity name = mNamedImages.getNextNameEntity();
         String title = (name == null) ? null : name.title;
         mActivity.getMediaSaveService().addRawImage(data, title, "raw");
+        image.close();
     }
 
     enum STATUS {
@@ -662,8 +675,9 @@ public class PostProcessor{
                 || "enable".equals(
                          SettingsManager.getInstance().getValue(SettingsManager.KEY_AUTO_HDR))
                 || SettingsManager.getInstance().isCamera2HDRSupport()
-                || "18".equals(SettingsManager.getInstance().getValue(
-                                  SettingsManager.KEY_SCENE_MODE))
+                || ("18".equals(SettingsManager.getInstance().getValue(
+                                  SettingsManager.KEY_SCENE_MODE)) &&
+                   !"1".equals(SettingsManager.getInstance().getValue(SettingsManager.KEY_HDR_MODE)))
                 || mController.getCameraMode() == CaptureModule.DUAL_MODE
                 || isSupportedQcfa) {
             mUseZSL = false;

@@ -89,6 +89,7 @@ public class ZSLQueue {
 
     public void add(Image image, Image rawImage) {
         int lastIndex = -1;
+        long timestamp = image.getTimestamp();
         synchronized (mLock) {
             if(mBuffer == null)
                 return;
@@ -123,7 +124,7 @@ public class ZSLQueue {
             }
         }
 
-        if(DEBUG_QUEUE) Log.d(TAG, "imageIndex: " + lastIndex + " " + image.getTimestamp());
+        if(DEBUG_QUEUE) Log.d(TAG, "imageIndex: " + lastIndex + " " + timestamp);
     }
 
     public void add(TotalCaptureResult metadata) {
@@ -182,6 +183,25 @@ public class ZSLQueue {
             do {
                 item = mBuffer[index];
                 if (item != null && item.isValid() && checkImageRequirement(item.getMetadata())) {
+                    mBuffer[index] = null;
+                    return item;
+                }
+                index--;
+                if (index < 0) index = mBuffer.length - 1;
+            } while (index != mImageHead);
+        }
+        return null;
+    }
+
+    public ImageItem tryToGetFallOffImage(TotalCaptureResult captureResult,double timestamp) {
+        synchronized (mLock) {
+            int index = mImageHead;
+            ImageItem item;
+            do {
+                item = mBuffer[index];
+                if (item != null && item.isValid() && (
+                        captureResult.getFrameNumber() == item.getMetadata().getFrameNumber() ||
+                      timestamp < item.getMetadata().get(CaptureResult.SENSOR_TIMESTAMP))) {
                     mBuffer[index] = null;
                     return item;
                 }
