@@ -72,6 +72,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.os.Trace;
 import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -1161,6 +1162,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     private void createSessions() {
+        Trace.beginSection("CaptureModule createSessions");
         if (mPaused || !mCamerasOpened ) return;
         if (isBackCamera()) {
             switch (getCameraMode()) {
@@ -1182,6 +1184,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             int cameraId = SWITCH_ID == -1? FRONT_ID : SWITCH_ID;
             createSession(cameraId);
         }
+        Trace.endSection();
     }
 
     private CaptureRequest.Builder getRequestBuilder(int id) throws CameraAccessException {
@@ -1505,6 +1508,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void init(CameraActivity activity, View parent) {
+        Trace.beginSection("CaptureModule init");
         mActivity = activity;
         mRootView = parent;
         mSettingsManager = SettingsManager.getInstance();
@@ -1530,6 +1534,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         mFocusStateListener = new FocusStateListener(mUI);
         mLocationManager = new LocationManager(mActivity, this);
+        Trace.endSection();
     }
 
     private void initModeByIntent() {
@@ -2852,6 +2857,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     private void openCamera(int id) {
+        Trace.beginSection("CaptureModule openCamera");
         if (mPaused) {
             return;
         }
@@ -2870,6 +2876,7 @@ public class CaptureModule implements CameraModule, PhotoController,
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        Trace.endSection();
     }
 
     @Override
@@ -2917,12 +2924,12 @@ public class CaptureModule implements CameraModule, PhotoController,
         mLastJpegData = null;
         setProModeVisible();
         setBokehModeVisible();
-        mJpegImageData = null;
-        closeVideoFileDescriptor();
-        if (mIntentMode != CaptureModule.INTENT_MODE_NORMAL) {
+        if (mIntentMode != CaptureModule.INTENT_MODE_NORMAL && mJpegImageData != null) {
             mActivity.setResultEx(Activity.RESULT_CANCELED, new Intent());
             mActivity.finish();
         }
+        mJpegImageData = null;
+        closeVideoFileDescriptor();
     }
 
     @Override
@@ -3081,7 +3088,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mFrameProcessor.onOpen(getFrameProcFilterId(), mPreviewSize);
         }
 
-        if(mPostProcessor.isZSLEnabled()) {
+        if(mPostProcessor.isZSLEnabled() && !isActionImageCapture()) {
             mChosenImageFormat = ImageFormat.PRIVATE;
         } else if(mPostProcessor.isFilterOn() || getFrameFilters().size() != 0 || mPostProcessor.isSelfieMirrorOn()) {
             mChosenImageFormat = ImageFormat.YUV_420_888;
@@ -3102,6 +3109,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     @Override
     public void onResumeAfterSuper() {
+        Trace.beginSection("CaptureModule onResumeAfterSuper");
         Log.d(TAG, "onResume " + getCameraMode());
         reinit();
         initializeValues();
@@ -3173,6 +3181,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                 mActivity.onModuleSelected(ModuleSwitcher.PANOCAPTURE_MODULE_INDEX);
             }
         }
+        Trace.endSection();
     }
 
     @Override
@@ -4409,7 +4418,11 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void closePreviewSession() {
         Log.d(TAG, "closePreviewSession");
         if (mCurrentSession != null) {
+            int cameraId = getMainCameraId();
             mCurrentSession.close();
+            if (mCurrentSession.equals(mCaptureSession[cameraId])) {
+                mCaptureSession[cameraId] = null;
+            }
             mCurrentSession = null;
         }
     }
