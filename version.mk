@@ -43,7 +43,7 @@ base_version_build := 002
 #####################################################
 #####################################################
 # Collect automatic version code parameters
-ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
+ifneq "" "$(filter eng.%,$(BUILD_NUMBER_FROM_FILE))"
   # This is an eng build
   base_version_buildtype := 0
 else
@@ -82,13 +82,13 @@ version_code_package := $(base_version_major)$(base_version_minor)$(base_version
 # - For eng build (t=0):     M.m.bbb eng.$(USER)-hh
 # - For build server (t=1):  M.m.bbb (nnnnnn-hh)
 #       where nnnnnn is the build number from the build server (no zero-padding)
-# On eng builds, the BUILD_NUMBER has the user and timestamp inline
-ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
+# On eng builds, the BUILD_NUMBER_FROM_FILE has the user and timestamp inline
+ifneq "" "$(filter eng.%,$(BUILD_NUMBER_FROM_FILE))"
   git_hash := $(shell git --git-dir $(LOCAL_PATH)/.git log -n 1 --pretty=format:%h)
   date_string := $(shell date +%m%d%y_%H%M%S)
   version_name_package := $(base_version_major).$(base_version_minor).$(base_version_build) (eng.$(USER).$(git_hash).$(date_string)-$(base_version_arch)$(base_version_density))
 else
-  version_name_package := $(base_version_major).$(base_version_minor).$(base_version_build) ($(BUILD_NUMBER)-$(base_version_arch)$(base_version_density))
+  version_name_package := $(base_version_major).$(base_version_minor).$(base_version_build) ($(BUILD_NUMBER_FROM_FILE)-$(base_version_arch)$(base_version_density))
 endif
 
 # Cleanup the locals
