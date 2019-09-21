@@ -90,9 +90,9 @@ import android.view.Surface;
 public class SnapshotBokehProcessor {
     private static final String TAG = "SnapshotBokehProcessor";
 
-    private static final String PROPERTY_QUEUE = "persist.vendor.snapcam.bokeh.queue";
-    private static final String PROPERTY_BOKEH_DEBUG = "persist.vendor.snapcam.bokeh.debug";
-    private static final String PROPERTY_UPSCALE = "persist.vendor.snapcam.bokeh.scale";
+    private static final String PROPERTY_QUEUE = "persist.sys.snapcam.bokeh.queue";
+    private static final String PROPERTY_BOKEH_DEBUG = "persist.sys.snapcam.bokeh.debug";
+    private static final String PROPERTY_UPSCALE = "persist.sys.snapcam.bokeh.scale";
 
     private static CameraCharacteristics.Key<byte[]> OTP_CALIB_BLOB =
             new CameraCharacteristics.Key<>(
