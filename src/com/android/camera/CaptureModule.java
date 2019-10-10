@@ -2043,7 +2043,13 @@ public class CaptureModule implements CameraModule, PhotoController,
     private void captureStillPictureForLongshot(CaptureRequest.Builder captureBuilder, int id) throws CameraAccessException{
         Log.d(TAG, "captureStillPictureForLongshot " + id);
         List<CaptureRequest> burstList = new ArrayList<>();
+        int burstShotFpsNums = PersistUtil.isBurstShotFpsNums();
         for (int i = 0; i < mLongShotLimitNums; i++) {
+            for (int j = 0; j < burstShotFpsNums; j++) {
+                mPreviewRequestBuilder[id].setTag("preview");
+                burstList.add(mPreviewRequestBuilder[id].build());
+            }
+            captureBuilder.setTag("capture");
             burstList.add(captureBuilder.build());
         }
         mCaptureSession[id].captureBurst(burstList, mLongshotCallBack, mCaptureCallbackHandler);
@@ -2202,19 +2208,26 @@ public class CaptureModule implements CameraModule, PhotoController,
                                     try {
                                         mLiveShotImage.getWriter().stop(3000);
                                         mLiveShotImage.getWriter().close();
-                                        mLiveShotOutput.removeSurface(mLiveShotImage.getInputSurface());
-                                        mCurrentSession.updateOutputConfiguration(mLiveShotOutput);
                                         mActivity.getMediaSaveService().addHEIFImage(mLiveShotImage.getPath(),
                                                 mLiveShotImage.getTitle(),mLiveShotImage.getDate(),
                                                 null,mVideoSize.getWidth(),mVideoSize.getHeight(),
                                                 mLiveShotImage.getOrientation(),null,
                                                 mContentResolver,mOnMediaSavedListener,
                                                 mLiveShotImage.getQuality(),"heif");
-                                        mLiveShotImage = null;
                                     } catch (TimeoutException | IllegalStateException e) {
                                         e.printStackTrace();
                                     } catch (Exception e) {
                                         e.printStackTrace();
+                                    } finally {
+                                        try{
+                                            mLiveShotOutput.removeSurface(mLiveShotImage.getInputSurface());
+                                            mCurrentSession.updateOutputConfiguration(mLiveShotOutput);
+                                            mLiveShotImage = null;
+                                        } catch (CameraAccessException e) {
+                                            e.printStackTrace();
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
                                     }
                                 }
                                 mActivity.runOnUiThread(new Runnable() {
@@ -4620,6 +4633,10 @@ public class CaptureModule implements CameraModule, PhotoController,
 
     private void setUpMediaRecorder(int cameraId) throws IOException {
         Log.d(TAG, "setUpMediaRecorder");
+        int id = 0;
+        if (cameraId == 0 || cameraId == 1) {
+            id = cameraId;
+        }
         String videoSize = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_QUALITY);
         int size = CameraSettings.VIDEO_QUALITY_TABLE.get(videoSize);
         Intent intent = mActivity.getIntent();
@@ -4642,8 +4659,8 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         boolean hfr = mHighSpeedCapture && !mHighSpeedRecordingMode;
 
-        if (CamcorderProfile.hasProfile(cameraId, size)) {
-            mProfile = CamcorderProfile.get(cameraId, size);
+        if (CamcorderProfile.hasProfile(id, size)) {
+            mProfile = CamcorderProfile.get(id, size);
         } else {
             if (!"-1".equals(mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA))) {
                 mProfile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
@@ -4778,7 +4795,7 @@ public class CaptureModule implements CameraModule, PhotoController,
             mMediaRecorder.setLocation((float) loc.getLatitude(),
                     (float) loc.getLongitude());
         }
-        int rotation = CameraUtil.getJpegRotation(cameraId, mOrientation);
+        int rotation = CameraUtil.getJpegRotation(id, mOrientation);
         String videoRotation = mSettingsManager.getValue(SettingsManager.KEY_VIDEO_ROTATION);
         if (videoRotation != null) {
             rotation += Integer.parseInt(videoRotation);
