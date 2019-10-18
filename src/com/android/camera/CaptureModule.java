@@ -3115,11 +3115,21 @@ public class CaptureModule implements CameraModule, PhotoController,
             mFrameProcessor.onClose();
 
             Size preview = mVideoPreviewSize;
+            int width = preview.getWidth();
+            int height = preview.getHeight();
+
             if (mHighSpeedCapture) {
-                preview = mVideoSize;
+                width = mVideoSize.getWidth();
+                height = mVideoSize.getHeight();
             }
-            boolean changed = mUI.setPreviewSize(preview.getWidth(),
-                    preview.getHeight());
+
+            Point previewSizeProperty = PersistUtil.getCameraPreviewSize();
+            if (previewSizeProperty != null) {
+                width = previewSizeProperty.x;
+                height = previewSizeProperty.y;
+            }
+
+            boolean changed = mUI.setPreviewSize(width, height);
             if (changed) {
                 mUI.hideSurfaceView();
                 mUI.showSurfaceView();
