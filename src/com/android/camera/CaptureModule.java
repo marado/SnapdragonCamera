@@ -437,6 +437,8 @@ public class CaptureModule implements CameraModule, PhotoController,
     private ParcelFileDescriptor mVideoFileDescriptor;
     private Uri mSaveUri;
     private boolean mQuickCapture;
+    private boolean mUseFrontCamera;
+    private int mTimer;
     private byte[] mJpegImageData;
     private boolean mSaveRaw = false;
     private boolean mSupportZoomCapture = true;
@@ -1107,6 +1109,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     public boolean isBackCamera() {
+        if (mUseFrontCamera)return false;
         String switchValue = mSettingsManager.getValue(SettingsManager.KEY_SWITCH_CAMERA);
         if (switchValue != null && !switchValue.equals("-1") ) {
             CharSequence[] value = mSettingsManager.getEntryValues(SettingsManager.KEY_SWITCH_CAMERA);
@@ -1730,6 +1733,10 @@ public class CaptureModule implements CameraModule, PhotoController,
         if (myExtras != null) {
             mSaveUri = (Uri) myExtras.getParcelable(MediaStore.EXTRA_OUTPUT);
             mCropValue = myExtras.getString("crop");
+            mUseFrontCamera = myExtras.getBoolean("android.intent.extra.USE_FRONT_CAMERA", false) ||
+                    myExtras.getBoolean("com.google.assistant.extra.USE_FRONT_CAMERA", false);
+            mTimer = myExtras.getInt("android.intent.extra.TIMER_DURATION_SECONDS", 0);
+            Log.d(TAG, "mUseFrontCamera :" + mUseFrontCamera + ", mTimer :" + mTimer);
         }
     }
 
