@@ -56,6 +56,7 @@ import android.media.MediaActionSound;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -217,6 +218,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     private int mDisplayRotation;
     private int mDisplayOrientation;
     private boolean mIsRefocus = false;
+    private boolean mUseFrontCamera = false;
 
     /**
      * A {@link CameraCaptureSession } for camera preview.
@@ -656,6 +658,7 @@ public class CaptureModule implements CameraModule, PhotoController,
     }
 
     public boolean isBackCamera() {
+        if (mUseFrontCamera)return false;
         String value = mSettingsManager.getValue(SettingsManager.KEY_CAMERA_ID);
         if (value == null) return true;
         if (Integer.parseInt(value) == BAYER_ID) return true;
@@ -978,6 +981,7 @@ public class CaptureModule implements CameraModule, PhotoController,
 
         setCurrentMode();
         mContentResolver = mActivity.getContentResolver();
+        initModeByIntent();
         mUI = new CaptureUI(activity, this, parent);
         mUI.initializeControlByIntent();
 
@@ -985,6 +989,16 @@ public class CaptureModule implements CameraModule, PhotoController,
         mLocationManager = new LocationManager(mActivity, this);
         Storage.setSaveSDCard(mSettingsManager.getValue(SettingsManager
                 .KEY_CAMERA_SAVEPATH).equals("1"));
+    }
+
+    private void initModeByIntent() {
+        String action = mActivity.getIntent().getAction();
+        Bundle myExtras = mActivity.getIntent().getExtras();
+        if (myExtras != null) {
+            mUseFrontCamera = myExtras.getBoolean("android.intent.extra.USE_FRONT_CAMERA", false)||
+                    myExtras.getBoolean("com.google.assistant.extra.USE_FRONT_CAMERA", false);
+            Log.d(TAG, "mUseFrontCamera :" + mUseFrontCamera);
+        }
     }
 
     /**
