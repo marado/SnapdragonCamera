@@ -1603,8 +1603,8 @@ public class CaptureModule implements CameraModule, PhotoController,
                 mPreviewCaptureResult.get(CaptureResult.CONTROL_AE_STATE) !=
                         CameraMetadata.CONTROL_AE_STATE_FLASH_REQUIRED &&
                 mPreviewCaptureResult.getRequest().
-                        get(CaptureRequest.CONTROL_AE_LOCK) != Boolean.TRUE)) ||
-                isActionImageCapture()) {
+                        get(CaptureRequest.CONTROL_AE_LOCK) != Boolean.TRUE))
+                ||(!isFlashOn(getMainCameraId()) && isActionImageCapture())) {
             takeZSLPictureInHAL();
         } else {
             if (isBackCamera()) {
@@ -4415,7 +4415,7 @@ public class CaptureModule implements CameraModule, PhotoController,
                             mCurrentSession.capture(mVideoRequestBuilder.build(), mCaptureCallback,
                                     mCameraHandler);
                         }
-                    } catch (IllegalArgumentException illegalArgumentException) {
+                    } catch (IllegalArgumentException | UnsupportedOperationException exception) {
                         Log.w(TAG, "can not find vendor tag: org.quic.camera.recording.endOfStream or surface not valid");
                     }
                 }
