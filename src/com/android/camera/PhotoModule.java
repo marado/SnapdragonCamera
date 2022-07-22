@@ -284,6 +284,7 @@ public class PhotoModule
 
     private boolean mIsBokehMode = false;
     private TextView mBokehTipText;
+    private boolean mBokehTipVisible = false;
     private boolean mDepthSuccess = false;
     private boolean mSaveBokehXmp = false;
 
@@ -1250,9 +1251,11 @@ public class PhotoModule
                         public void run() {
                             if (mBokehTipText != null) {
                                 if (!mDepthSuccess) {
+                                    mBokehTipVisible = true;
                                     mBokehTipText.setVisibility(View.VISIBLE);
                                     mBokehTipText.setText(tip);
                                 } else {
+                                    mBokehTipVisible = false;
                                     mBokehTipText.setVisibility(View.GONE);
                                 }
                             }
@@ -2222,7 +2225,7 @@ public class PhotoModule
             mUI.getBokehDegreeBar().setOnSeekBarChangeListener(mBlurDegreeListener);
             mUI.enableBokehRender(true);
             mUI.setBokehRenderDegree(degree);
-            mBokehTipText.setVisibility(View.VISIBLE);
+            if (mBokehTipVisible) mBokehTipText.setVisibility(View.VISIBLE);
         } else {
             mIsBokehMode = false;
             if (mCameraDevice != null) {
